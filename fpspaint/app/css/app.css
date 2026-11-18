@@ -355,3 +355,11 @@ body.wide #rail{background:rgba(29,31,34,.82)}
 .lrow .dh{width:34px;height:44px;display:grid;place-items:center;color:var(--tx3);touch-action:none;cursor:grab;flex:none}
 .lrow .dh svg.i{width:20px;height:20px}
 .llist{touch-action:pan-y}
+
+/* en pantallas táctiles: sin desenfoque de fondo (es muy pesado mientras se dibuja) */
+@media (pointer:coarse){
+  .cap,#panel,.sheet,#fxBar,.bgx-top,.bgx-bot{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .cap{background:rgba(38,40,44,.72)}
+  #panel,.sheet{background:rgba(36,38,42,.94)}
+}
+#view{will-change:transform}

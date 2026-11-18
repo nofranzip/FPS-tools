@@ -70,7 +70,7 @@ const UI = {
 
   /* ---------- inicio ---------- */
   async init() {
-    view = $('#view'); vctx = view.getContext('2d');
+    view = $('#view'); try { vctx = view.getContext('2d', { alpha: false, desynchronized: true }); } catch { } if (!vctx) vctx = view.getContext('2d');
     $('#gLogo').innerHTML = LOGO; $('#gNew').innerHTML = ic('plus'); $('#gImport').innerHTML = ic('upload') + '<span>Importar</span>'; $('#gPixel').innerHTML = ic('pixel') + '<span>Pixel art</span>'; $('#gPixel').onclick = () => this.openPixelNew();
     $('#pscrim').onclick = () => this.closePanel();
     $('#scrim').onclick = () => { const t = this.sheetStack[this.sheetStack.length - 1]; if (t && t.opts.modalLock) return; if (t) t.opts.onOk && t.opts.dock ? t.opts.onOk() : this.closeSheet(); else this.closePanel(); };
@@ -219,7 +219,7 @@ const UI = {
   updZoom() { const z = $('#zoomLbl'); if (z) z.textContent = Math.round(V.s * 100) + '%'; },
   refreshUndo() { $('#bUndo').disabled = !S.undo.length || (S.bgx && S.undo.length <= S.bgx.undoStart); $('#bRedo').disabled = !S.redo.length; $('#bxUndo') && ($('#bxUndo').disabled = $('#bUndo').disabled, $('#bxRedo').disabled = $('#bRedo').disabled); },
   refreshAll() { this.updTool(); this.updDock(); this.onColor(); this.refreshLayers(); this.refreshUndo(); this.renderTimeline(); this.updZoom(); $('#docTitle').textContent = doc.name + ' · ' + doc.w + '×' + doc.h; this.refreshBrushList(); },
-  onChanged(struct) { this.refreshUndo(); clearTimeout(this._lt); this._lt = setTimeout(() => { this.refreshLayers(); this.renderTimeline(); }, struct ? 0 : 250); if (!struct) TL.snap(); },
+  onChanged(struct) { this.refreshUndo(); clearTimeout(this._lt); const panelOn = this.isWide() || $('#panel').classList.contains('open'); this._layersStale = true; this._lt = setTimeout(() => { if (this.isWide() || $('#panel').classList.contains('open')) { if (this.panelTab === 'layers' || this.isWide()) { this.refreshLayers(); this._layersStale = false; } } else $('#dLayers b').textContent = L().length; if (doc && doc.anim) this.renderTimeline(); }, struct ? 0 : 700); if (!struct) { const run = () => TL.snap(); window.requestIdleCallback ? requestIdleCallback(run, { timeout: 6000 }) : setTimeout(run, 1500); } },
   isPixelBrush() { return (S.tool === 'brush' || S.tool === 'eraser') && BR[S.cfg[S.tool].id] && BR[S.cfg[S.tool].id].pixel; },
   updSizeLbl() { $('#vsSize').textContent = sizeFmt(toolSize()); $('#vsOp').textContent = Math.round(toolOp() * 100) + '%'; },
   updDock() {
@@ -241,7 +241,7 @@ const UI = {
     this.panelTab = t; const p = $('#panel'); $$('.psec', p).forEach(s => s.classList.toggle('on', s.dataset.s === t)); $$('.tabs button', p).forEach(b => b.classList.toggle('on', b.dataset.t === t));
     $('#pTitle').textContent = { brush: this.brushTitle(), color: 'Color', layers: 'Capas' }[t]; $('#pExtra').innerHTML = '';
     if (t === 'brush') { const m = el(`<button class="ib" title="Importar / exportar pinceles">${ic('dots')}</button>`); m.onclick = () => this.brushMenu(); $('#pExtra').appendChild(m); this.refreshBrushList(); this.syncPanelSliders(); }
-    if (t === 'layers') { const m = el(`<button class="ib" title="Más opciones de capa">${ic('dots')}</button>`); m.onclick = () => this.layerMenu(); $('#pExtra').appendChild(m); this.refreshLayers(); }
+    if (t === 'layers') { this._layersStale = false; const m = el(`<button class="ib" title="Más opciones de capa">${ic('dots')}</button>`); m.onclick = () => this.layerMenu(); $('#pExtra').appendChild(m); this.refreshLayers(); }
     if (t === 'color') this.onColor();
     p.classList.add('open'); if (!this.isWide()) $('#pscrim').classList.add('show');
   },
@@ -251,7 +251,7 @@ const UI = {
     const s = $('.psec[data-s="brush"]'); s.innerHTML = `<div class="bprev"><canvas></canvas><div class="nm"></div></div><div class="bwrap"><div class="bcats"></div><div class="blist"></div></div><div class="bsl"></div>`;
     this.bSize = SRow('Grosor', { min: .5, max: 1000, value: 10, ...SIZE_T, fmt: v => sizeFmt(v) + 'px', bump: (v, d) => v + d * (v < 10 ? .5 : v < 50 ? 1 : 5), onInput: v => { setToolSize(this.isPixelBrush() ? Math.round(v) : v); this.updDock(); this.drawBrushPreview(); } });
     this.bOp = SRow('Opacidad', { min: 0, max: 1, value: 1, step: .01, cls: 'chk', fmt: v => Math.round(v * 100) + '%', onInput: v => { const c = S.cfg[S.tool]; if (c) c.op = Math.max(.01, v); this.updSizeLbl(); this.vOp.set(v); } });
-    this.bStab = SRow('Estabilizador', { min: 0, max: 10, value: S.stab, step: 1, fmt: v => v ? Math.round(v) + '' : 'No', onInput: v => { S.stab = v; store.set('stab', v); } });
+    this.bStab = SRow('Estabilizador', { min: 0, max: 10, value: S.stab, step: 1, fmt: v => v ? Math.round(v) + '' : 'No', onInput: v => { S.stab = v; store.set('stab2', v); } });
     $('.bsl', s).append(this.bSize.el, this.bOp.el, this.bStab.el);
     this.bcat = 'all';
   },
@@ -588,7 +588,7 @@ const UI = {
   /* ---------- trazo ---------- */
   openStab() {
     this.sheet('stab', 'Trazo', body => {
-      const b1 = el('<div class="box"></div>'); b1.appendChild(SRow('Estabilizador', { min: 0, max: 10, value: S.stab, step: 1, fmt: v => v ? v + '' : 'No', onInput: v => { S.stab = v; store.set('stab', v); this.bStab.set(v); } }).el);
+      const b1 = el('<div class="box"></div>'); b1.appendChild(SRow('Estabilizador', { min: 0, max: 10, value: S.stab, step: 1, fmt: v => v ? v + '' : 'No', onInput: v => { S.stab = v; store.set('stab2', v); this.bStab.set(v); } }).el);
       b1.appendChild(el('<p style="color:var(--tx2);font-size:12.5px;margin:6px 2px 0">Más alto = líneas más suaves pero con más retraso.</p>')); body.appendChild(b1);
       body.appendChild(el('<div class="sec-t">Atenuación</div>')); const b2 = el('<div class="box"></div>');
       const r = el('<div class="row"><span class="lbl">Forzar atenuación (puntas finas)</span></div>'); r.appendChild(Toggle(S.taper.on, v => { S.taper.on = v; store.set('taper', S.taper); })); b2.appendChild(r);
@@ -999,7 +999,7 @@ const REF = {
   persist() { DB.put('kv', 'refs', this.imgs.map(i => i.blob)); },
 };
 // mantener la vista en vivo actualizada
-const _origChanged = UI.onChanged; UI.onChanged = function (s) { _origChanged.call(this, s); clearTimeout(REF._t); REF._t = setTimeout(() => REF.drawLive(), 400); };
+const _origChanged = UI.onChanged; UI.onChanged = function (s) { _origChanged.call(this, s); clearTimeout(REF._t); if ($('#refWin')) REF._t = setTimeout(() => REF.drawLive(), 600); };
 
 /* fuentes importadas guardadas */
 (async () => { })();

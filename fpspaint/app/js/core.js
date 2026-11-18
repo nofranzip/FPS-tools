@@ -106,7 +106,7 @@ const S = {
   tool: 'brush', prevTool: 'brush',
   cfg: { brush: { id: 'pluma', sizes: {}, op: 1 }, eraser: { id: 'rotulador', sizes: {}, op: 1 }, smudge: { size: 40, op: .6 }, blur: { size: 50, op: .6 }, shape: { size: 6, op: 1 }, select: { size: 1, op: 1 }, fill: { size: 1, op: 1 } },
   color: [24, 26, 32], hsv: [228, .25, .12], prevColor: [24, 26, 32], recent: store.get('recent', []),
-  stab: store.get('stab', 2), rotGesture: store.get('rotGesture', true), taper: store.get('taper', { on: false, start: .4, end: .4 }),
+  stab: store.get('stab2', 1), rotGesture: store.get('rotGesture', true), taper: store.get('taper', { on: false, start: .4, end: .4 }),
   shape: 'line', shapeFill: false, fillTol: 32, fillAll: true, fillGrow: 1,
   sym: { mode: 'off', n: 6 }, ruler: { mode: 'off', a: null, b: null, c: null },
   grid: { on: false, size: 64 }, smoothZoom: true, selMode: 'rect',
@@ -176,7 +176,7 @@ function fitView() {
 }
 function zoomAt(f, cx, cy) { const p = toDoc(cx, cy); V.s = clamp(V.s * f, .05, 64); const q = toScr(p.x, p.y); V.x += cx - q.x; V.y += cy - q.y; requestRender(); UI.updZoom && UI.updZoom(); }
 function resizeView() {
-  const r = stageRect(); V.dpr = Math.min(window.devicePixelRatio || 1, window.FPSAndroid || matchMedia('(pointer:coarse)').matches ? 2 : 2.5); V.w = r.width; V.h = r.height;
+  _vr = null; const r = stageRect(); V.dpr = Math.min(window.devicePixelRatio || 1, window.FPSAndroid || matchMedia('(pointer:coarse)').matches ? 2 : 2.5); V.w = r.width; V.h = r.height;
   view.width = Math.round(r.width * V.dpr); view.height = Math.round(r.height * V.dpr); requestRender();
 }
 let rafId = 0;
@@ -289,10 +289,11 @@ function drawCached(c) {
   const bs = lsig(below), as = lsig(above);
   if (RC.bsig !== bs) { const cc = cached('rcBelow'), x = cc.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, doc.w, doc.h); drawLayers(x, below, {}); RC.bsig = bs; }
   if (RC.asig !== as) { const cc = cached('rcAbove'), x = cc.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, doc.w, doc.h); drawLayers(x, above, {}); RC.asig = as; }
-  if (below.length) c.drawImage(cached('rcBelow'), 0, 0);
+  const fast0 = lvis(act) && op && op.live && op.kind === 'stroke' && !op.erase && !act.alphaLock && !S.sel && !act.tone && act.blend === 'source-over' && !(S.fx && S.fx.preview);
+  if (below.length && !fast0) c.drawImage(cached('rcBelow'), 0, 0);
   if (lvis(act)) {
     const fast = op && op.live && op.kind === 'stroke' && !op.erase && !act.alphaLock && !S.sel && !act.tone && act.blend === 'source-over' && !(S.fx && S.fx.preview);
-    if (fast) { c.globalAlpha = act.opacity * lfo(act); c.drawImage(act.canvas, 0, 0); c.globalAlpha = act.opacity * lfo(act) * op.opacity; c.drawImage(sCanvas, 0, 0); }
+    if (fast) { const key = RC.bsig + '|' + act.id + ':' + act.ver + ':' + act.opacity * lfo(act); if (RC.bksig !== key) { const cc = cached('rcBA'), x = cc.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, doc.w, doc.h); if (below.length) x.drawImage(cached('rcBelow'), 0, 0); x.globalAlpha = act.opacity * lfo(act); x.drawImage(act.canvas, 0, 0); RC.bksig = key; } c.globalAlpha = 1; c.drawImage(cached('rcBA'), 0, 0); c.globalAlpha = act.opacity * lfo(act) * op.opacity; c.drawImage(sCanvas, 0, 0); c.globalAlpha = 1; if (above.length) c.drawImage(cached('rcAbove'), 0, 0); return; }
     else { c.globalAlpha = act.opacity * lfo(act); c.globalCompositeOperation = act.blend; c.drawImage(liveSource(act, act, {}), 0, 0); }
     c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   }
@@ -309,7 +310,7 @@ function render() {
   const bg = S.bgx ? BGX_BG[S.bgx.bgi] : doc.bg;
   if (bg === 'transparent' || bg === 'checker') { c.save(); c.setTransform(d, 0, 0, d, 0, 0); c.beginPath(); for (const [qx, qy] of [[0, 0], [doc.w, 0], [doc.w, doc.h], [0, doc.h]]) { const q = toScr(qx, qy); c.lineTo(q.x, q.y); } c.closePath(); c.clip(); c.fillStyle = checker(c); c.fillRect(0, 0, view.width, view.height); c.restore(); }
   else { c.fillStyle = bg === 'white' ? '#fff' : bg === 'black' ? '#000' : bg; c.fillRect(0, 0, doc.w, doc.h); }
-  c.imageSmoothingEnabled = doc.pixel ? false : (S.smoothZoom || V.s < 1.5); c.imageSmoothingQuality = 'high';
+  c.imageSmoothingEnabled = doc.pixel ? false : (S.smoothZoom || V.s < 1.5); c.imageSmoothingQuality = (op || gest) ? 'low' : 'high';
   ensureTmp();
   if (S.playing) { drawLayers(c, doc.frames[S.playFrame].layers, {}); }
   else if (S.bgx) { const l = AL(); const src = liveSource(l, l, {}); c.drawImage(src, 0, 0); }
@@ -433,7 +434,7 @@ function startStroke(p, tool, extra = {}) {
 function rulerProject(p) { return RULER.project(p, op.start); }
 function addStroke(p) {
   if (S.ruler.mode !== 'off' && !S.bgx) p = { ...rulerProject(p), pr: p.pr };
-  const k = S.ruler.mode !== 'off' ? 1 : 1 - clamp(S.stab, 0, 10) * .088;
+  const k = S.ruler.mode !== 'off' ? 1 : 1 - clamp(S.stab, 0, 10) * .075;
   const sm = op.sm; sm.x += (p.x - sm.x) * k; sm.y += (p.y - sm.y) * k; sm.pr += (p.pr - sm.pr) * Math.min(1, k + .2);
   const cur = { x: sm.x, y: sm.y, pr: sm.pr };
   if (!op.last) { dabAt(cur); op.last = cur; op.pts = [cur]; op.m = cur; requestRender(); return; }
@@ -581,7 +582,8 @@ function setColor(rgb, keepHue) { S.color = rgb.slice(0, 3); const h = rgb2hsv(.
 
 /* ---------- entrada ---------- */
 const ptrs = new Map(); let gest = null, penSeen = false, lpTimer = 0, spaceDown = false;
-function evPt(e) { const r = view.getBoundingClientRect(); return { sx: e.clientX - r.left, sy: e.clientY - r.top }; }
+let _vr = null; function viewRect() { return _vr || (_vr = view.getBoundingClientRect()); } addEventListener('resize', () => _vr = null); addEventListener('scroll', () => _vr = null, true);
+function evPt(e) { const r = viewRect(); return { sx: e.clientX - r.left, sy: e.clientY - r.top }; }
 function pressure(e) { if (e.pointerType === 'pen') return clamp(e.pressure || .5, .02, 1); return 1; }
 function bgxOffset(e, s) { if (S.bgx && e.pointerType === 'touch' && ['manual', 'repair'].includes(S.bgx.mode)) return { sx: s.sx, sy: s.sy - S.bgx.offset }; return s; }
 function onDown(e) {
