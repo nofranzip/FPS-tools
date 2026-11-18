@@ -321,6 +321,7 @@ function render() {
   // texto flotante
   if (S.textObj) TXT.drawObj(c);
   if (S.imgObj) IMGF.draw(c);
+  if (S.balloon) BAL.draw(c);
   c.setTransform(d, 0, 0, d, 0, 0); c.imageSmoothingEnabled = true;
   drawOverlays(c);
 }
@@ -356,6 +357,7 @@ function drawOverlays(c) {
   if (S.ruler.mode !== 'off' && !S.playing) RULER.draw(c);
   if (S.textObj) TXT.overlay(c);
   if (S.imgObj) IMGF.overlay(c);
+  if (S.balloon) BAL.overlay(c);
   // cursor del pincel
   const t = S.tool;
   if (S.bgx && S.bgx.cursor) { const k = S.bgx.cursor; c.save(); c.strokeStyle = '#ff5a5a'; c.lineWidth = 2; c.beginPath(); c.arc(k.x, k.y, Math.max(3, S.bgx.size / 2 * V.s), 0, 7); c.stroke(); if (k.fx !== undefined) { c.fillStyle = 'rgba(255,90,90,.85)'; c.beginPath(); c.arc(k.fx, k.fy, 9, 0, 7); c.fill(); } c.restore(); }
@@ -602,6 +604,7 @@ function onDown(e) {
   if (e.button === 1 || spaceDown || S.tool === 'hand' || (S.bgx && S.bgx.mode === 'zoom')) { op = { kind: 'pan', pid: e.pointerId, sx: s.sx, sy: s.sy, vx: V.x, vy: V.y, t0: performance.now() }; return; }
   const p0 = bgxOffset(e, s); const p = toDoc(p0.sx, p0.sy); p.pr = pressure(e);
   // asas de regla / texto
+  if (S.balloon) { if (BAL.down(p, s)) op = { kind: 'bal', pid: e.pointerId, t0: performance.now() }; return; }
   if (S.imgObj) { if (IMGF.down(p, s)) op = { kind: 'imgf', pid: e.pointerId, t0: performance.now() }; return; }
   if (S.textObj && TXT.down(p, s, e)) { op = { kind: 'text', pid: e.pointerId, t0: performance.now() }; return; }
   if (S.textObj) { TXT.commit(); return; }
@@ -649,6 +652,7 @@ function onMove(e) {
   if (op.kind === 'pick') { pickMove({ x: s.sx, y: s.sy }); return; }
   if (op.kind === 'text') { TXT.move(toDoc(s.sx, s.sy), s); return; }
   if (op.kind === 'imgf') { IMGF.move(toDoc(s.sx, s.sy)); return; }
+  if (op.kind === 'bal') { BAL.move(toDoc(s.sx, s.sy)); return; }
   if (op.kind === 'ruler') { RULER.drag(toDoc(s.sx, s.sy)); return; }
   if (op.kind === 'tap') { if (Math.hypot(s.sx - op.sx0, s.sy - op.sy0) > 12) op.moved = true; return; }
   if (op.kind === 'framecut') { op.b = toDoc(s.sx, s.sy); requestRender(); return; }
@@ -675,7 +679,7 @@ function onUp(e) {
   else if (k === 'pick') { if (op.col) { setColor(op.col); UI.addRecent && UI.addRecent(op.col); } op = null; if (S.tool === 'picker' && S.prevTool && S.prevTool !== 'picker') UI.setTool(S.prevTool); requestRender(); }
   else if (k === 'tap') { const f = op.fn, mv = op.moved; op = null; if (!mv) f(); }
   else if (k === 'text') { TXT.up(); op = null; }
-  else if (k === 'imgf') { op = null; }
+  else if (k === 'imgf' || k === 'bal') { op = null; }
   else if (k === 'ruler') { op = null; }
   else if (k === 'selpath') { const o = op; op = null; SEL.fromPts(o); }
   else if (k === 'framecut') { const o = op; op = null; FRAMES.cut(o.a, o.b, Math.hypot(o.b.x - o.a.x, o.b.y - o.a.y) * V.s < 10); }

@@ -177,3 +177,61 @@ const IMGF = {
     UI.toast('Imagen añadida en una capa nueva'); },
   cancel() { S.imgObj = null; UI.closeSheet('imgf'); requestRender(); },
 };
+
+/* ---------- globos de texto ---------- */
+if (!Path2D.prototype.roundRect) Path2D.prototype.roundRect = function (x, y, w, h, r) { r = Math.min(r || 0, w / 2, h / 2); this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); };
+const BALLOONS = [
+  ['oval', 'Normal'], ['rect', 'Redondeado'], ['box', 'Narración'], ['thought', 'Pensamiento'], ['cloud', 'Nube'], ['shout', 'Grito'],
+  ['flash', 'Impacto'], ['whisper', 'Susurro'], ['electric', 'Electrónico'], ['scared', 'Temblor'], ['heart', 'Amor'], ['rough', 'Monstruo']];
+const BAL = {
+  rng(seed) { let s = (seed % 2147483646) + 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; },
+  // devuelve { paths:[Path2D], dash, extra(ctx) } en coordenadas de documento
+  build(o) {
+    const cx = o.x, cy = o.y, rx = o.w / 2, ry = o.h / 2, tx = o.tail.x, ty = o.tail.y, t = o.type, R = this.rng(o.seed || 7), out = { paths: [], dash: null, lines: null };
+    const ang = Math.atan2((ty - cy) / ry, (tx - cx) / rx), ex = (a, k = 1) => [cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k];
+    const tail = (wid = .22, k = .9) => { if (!o.hasTail) return; const p = new Path2D(), a1 = ex(ang - wid, k), a2 = ex(ang + wid, k); p.moveTo(...a1); p.quadraticCurveTo(...ex(ang - wid * .3, 1.05), tx, ty); p.quadraticCurveTo(...ex(ang + wid * .1, 1.05), ...a2); p.closePath(); out.paths.push(p); };
+    const ellipse = (kx = 1, ky = 1) => { const p = new Path2D(); p.ellipse(cx, cy, rx * kx, ry * ky, 0, 0, 7); return p; };
+    const poly = (n, f) => { const p = new Path2D(); for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, k = f(i, a); const [x, y] = ex(a, k); i ? p.lineTo(x, y) : p.moveTo(x, y); } p.closePath(); return p; };
+    if (t === 'oval' || t === 'whisper') { out.paths.push(ellipse()); tail(); if (t === 'whisper') out.dash = [o.lw * 2.5, o.lw * 2]; }
+    else if (t === 'rect' || t === 'box') { const p = new Path2D(), r = t === 'box' ? 0 : Math.min(rx, ry) * .45; p.roundRect(cx - rx, cy - ry, rx * 2, ry * 2, r); out.paths.push(p); if (t === 'rect') tail(.16, .85); }
+    else if (t === 'cloud' || t === 'thought') { const p = new Path2D(), n = 11; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, [x, y] = ex(a, .86), r = Math.min(rx, ry) * (.34 + R() * .12); p.moveTo(x + r, y); p.arc(x, y, r, 0, 7); } p.addPath(ellipse(.86, .86)); out.paths.push(p);
+      if (o.hasTail) { if (t === 'thought') { const [sx, sy] = ex(ang, 1.05); for (let i = 0; i < 3; i++) { const f = (i + 1) / 3.6, q = new Path2D(), r = Math.min(rx, ry) * (.18 - i * .05); q.arc(sx + (tx - sx) * f, sy + (ty - sy) * f, Math.max(2, r), 0, 7); out.paths.push(q); } } else tail(.2, .85); } }
+    else if (t === 'shout' || t === 'flash') { const n = t === 'shout' ? 22 : 40; out.paths.push(poly(n * 2, i => i % 2 ? .82 + R() * .05 : 1.08 + R() * .22)); if (t === 'shout' && o.hasTail) { const p = new Path2D(), a1 = ex(ang - .14, .9), a2 = ex(ang + .14, .9), m = ex(ang, 1.3); p.moveTo(...a1); p.lineTo(m[0] + (tx - m[0]) * .3 + 12, m[1] + (ty - m[1]) * .3); p.lineTo(tx, ty); p.lineTo(m[0] + (tx - m[0]) * .5 - 12, m[1] + (ty - m[1]) * .5); p.lineTo(...a2); p.closePath(); out.paths.push(p); }
+      if (t === 'flash') { out.lines = []; for (let i = 0; i < 70; i++) { const a = i / 70 * Math.PI * 2 + R() * .05, k0 = 1.3 + R() * .25, k1 = 1.9 + R() * .6; out.lines.push([...ex(a, k0), ...ex(a, k1)]); } } }
+    else if (t === 'electric') { const p = new Path2D(); p.roundRect(cx - rx, cy - ry, rx * 2, ry * 2, Math.min(rx, ry) * .15); out.paths.push(p); if (o.hasTail) { const q = new Path2D(), [sx, sy] = ex(ang, .85), nx = -(ty - sy), ny = tx - sx, L = Math.hypot(nx, ny) || 1, w = Math.min(rx, ry) * .18; q.moveTo(sx + nx / L * w, sy + ny / L * w); for (let i = 1; i <= 4; i++) { const f = i / 5, s2 = i % 2 ? 1 : -1; q.lineTo(sx + (tx - sx) * f + nx / L * w * s2 * (1 - f), sy + (ty - sy) * f + ny / L * w * s2 * (1 - f)); } q.lineTo(tx, ty); for (let i = 4; i >= 1; i--) { const f = i / 5, s2 = i % 2 ? -1 : 1; q.lineTo(sx + (tx - sx) * f + nx / L * w * s2 * (1 - f) * .3, sy + (ty - sy) * f + ny / L * w * s2 * (1 - f) * .3); } q.lineTo(sx - nx / L * w, sy - ny / L * w); q.closePath(); out.paths.push(q); } }
+    else if (t === 'scared') { out.paths.push(poly(160, (i, a) => 1 + Math.sin(a * 24) * .035)); tail(.2); }
+    else if (t === 'rough') { out.paths.push(poly(60, () => .94 + R() * .1)); tail(.24); }
+    else if (t === 'heart') { const p = new Path2D(), w = rx, h = ry; p.moveTo(cx, cy + h); p.bezierCurveTo(cx - w * 1.25, cy + h * .05, cx - w * .95, cy - h * 1.15, cx, cy - h * .45); p.bezierCurveTo(cx + w * .95, cy - h * 1.15, cx + w * 1.25, cy + h * .05, cx, cy + h); out.paths.push(p); }
+    return out;
+  },
+  render(x, o) {
+    const b = this.build(o); x.save(); x.lineJoin = 'round'; x.lineCap = 'round';
+    if (b.lines) { x.strokeStyle = o.stroke; x.lineWidth = Math.max(1, o.lw * .7); x.beginPath(); for (const [a, c, d, e] of b.lines) { x.moveTo(a, c); x.lineTo(d, e); } x.stroke(); }
+    x.strokeStyle = o.stroke; x.lineWidth = o.lw * 2; if (b.dash) x.setLineDash(b.dash.map(v => v * 2)); if (o.lw > 0) for (const p of b.paths) x.stroke(p); x.setLineDash([]);
+    x.fillStyle = o.fill; for (const p of b.paths) x.fill(p);
+    if (o.text) { x.fillStyle = o.tcol; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = `${o.bold ? '700 ' : ''}${o.size}px "${o.font}", system-ui`; const lines = o.text.split('\n');
+      if (o.vertical) { const cols = lines.length, cw = o.size * 1.15; lines.forEach((ln, i) => { const chars = [...ln], X = o.x + (cols - 1) * cw / 2 - i * cw; chars.forEach((ch, j) => x.fillText(ch, X, o.y - (chars.length - 1) * o.size * .55 + j * o.size * 1.1)); }); }
+      else { const lh = o.size * 1.18; lines.forEach((ln, i) => x.fillText(ln, o.x, o.y + (i - (lines.length - 1) / 2) * lh)); } }
+    x.restore();
+  },
+  start(type) {
+    if (S.textObj) TXT.commit(); if (S.imgObj) IMGF.commit(); loadWebFonts(); const d = store.get('balDef', {}), m = Math.min(doc.w, doc.h);
+    S.balloon = Object.assign({ type, x: doc.w / 2, y: doc.h * .4, w: m * .5, h: m * .32, hasTail: !['box', 'flash'].includes(type), fill: '#ffffff', stroke: '#111111', lw: Math.max(2, m / 260), text: '', font: 'Comic Neue', size: Math.round(m / 22), tcol: '#111111', bold: true, vertical: false, seed: (Math.random() * 1e6) | 0 }, d, { type, text: '', seed: (Math.random() * 1e6) | 0 });
+    S.balloon.tail = { x: S.balloon.x - S.balloon.w * .2, y: S.balloon.y + S.balloon.h * .95 }; S.balloon.hasTail = !['box', 'flash', 'heart'].includes(type) && (d.hasTail ?? true);
+    requestRender(); UI.openBalloonSheet();
+  },
+  draw(c) { this.render(c, S.balloon); },
+  handles() { const o = S.balloon, pts = { tl: [o.x - o.w / 2, o.y - o.h / 2], tr: [o.x + o.w / 2, o.y - o.h / 2], bl: [o.x - o.w / 2, o.y + o.h / 2], br: [o.x + o.w / 2, o.y + o.h / 2] }; if (o.hasTail) pts.tail = [o.tail.x, o.tail.y]; return Object.fromEntries(Object.entries(pts).map(([k, v]) => [k, toScr(...v)])); },
+  overlay(c) { const o = S.balloon, h = this.handles(); c.save(); c.setLineDash([6, 4]); c.strokeStyle = '#58d3b0'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(h.tl.x, h.tl.y); c.lineTo(h.tr.x, h.tr.y); c.lineTo(h.br.x, h.br.y); c.lineTo(h.bl.x, h.bl.y); c.closePath(); c.stroke(); c.setLineDash([]);
+    for (const [k, p] of Object.entries(h)) { c.fillStyle = k === 'tail' ? '#ffb020' : '#1d1f22'; c.beginPath(); c.arc(p.x, p.y, k === 'tail' ? 13 : 12, 0, 7); c.fill(); c.strokeStyle = k === 'tail' ? '#1d1f22' : '#58d3b0'; c.lineWidth = 2; c.stroke(); } c.restore(); },
+  down(p, s) { const o = S.balloon, h = this.handles(); this.st = { p, o: JSON.parse(JSON.stringify(o)) }; this.mode = 'move'; for (const [k, q] of Object.entries(h)) if (Math.hypot(s.sx - q.x, s.sy - q.y) < 26) { this.mode = k; break; } return true; },
+  move(p) { const o = S.balloon, st = this.st, dx = p.x - st.p.x, dy = p.y - st.p.y; if (!o) return;
+    if (this.mode === 'move') { o.x = st.o.x + dx; o.y = st.o.y + dy; o.tail.x = st.o.tail.x + dx; o.tail.y = st.o.tail.y + dy; }
+    else if (this.mode === 'tail') { o.tail.x = st.o.tail.x + dx; o.tail.y = st.o.tail.y + dy; }
+    else { const sx = this.mode.includes('r') ? 1 : -1, sy = this.mode.includes('b') ? 1 : -1; o.w = Math.max(20, st.o.w + dx * sx); o.h = Math.max(16, st.o.h + dy * sy); o.x = st.o.x + (o.w - st.o.w) / 2 * sx; o.y = st.o.y + (o.h - st.o.h) / 2 * sy; }
+    requestRender(); },
+  commit() { const o = S.balloon; if (!o) return; S.balloon = null; UI.closeSheet('bal'); const sv = { ...o }; delete sv.text; delete sv.x; delete sv.y; delete sv.w; delete sv.h; delete sv.tail; delete sv.type; delete sv.seed; store.set('balDef', sv);
+    structOp(() => { const n = newLayer('Globo' + (o.text ? ': ' + o.text.split('\n')[0].slice(0, 14) : '')); n.folder = AL() ? AL().folder || null : null; this.render(n.ctx, o); FR().layers.splice(FR().active + 1, 0, n); FR().active++; }); },
+  cancel() { S.balloon = null; UI.closeSheet('bal'); requestRender(); },
+  preview(type, w = 96, h = 72) { const c = mkCanvas(w * 2, h * 2), x = c.getContext('2d'); this.render(x, { type, x: w, y: h * .82, w: w * 1.2, h: h * .95, tail: { x: w * .6, y: h * 1.85 }, hasTail: !['box', 'flash', 'heart'].includes(type), fill: '#fff', stroke: '#111', lw: 3, text: '', seed: 11 }); return c; },
+};

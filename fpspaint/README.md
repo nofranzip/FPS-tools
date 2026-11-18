@@ -10,6 +10,7 @@ Programa de dibujo, animación y manga para **Android** y **Windows**, hecho por
 - Capas con carpetas, arrastrar para ordenar, máscara de recorte, bloqueos, modos de mezcla y tramas de manga.
 - Color: selector, RGB y HSB, colores recientes y paletas propias (.gpl).
 - Selección (rectángulo, lazo y varita), regla, simetría, estabilizador y atenuación.
+- Globos de texto (12 estilos: normal, pensamiento, grito, impacto, susurro, electrónico…)
 - Texto con más de 25 fuentes y fuentes propias (.ttf, .otf).
 - 40 filtros con sus propios ajustes, quitar fondo y marcos de manga.
 - Animación: línea de tiempo, piel de cebolla, FPS, bucle o ida y vuelta, y duración por fotograma.

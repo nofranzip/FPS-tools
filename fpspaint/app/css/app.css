@@ -363,3 +363,5 @@ body.wide #rail{background:rgba(29,31,34,.82)}
   #panel,.sheet{background:rgba(36,38,42,.94)}
 }
 #view{will-change:transform}
+/* hojas de objetos flotantes (texto, imagen, globo): bajitas para ver el lienzo */
+body:not(.wide) .sheet.dockb{max-height:42vh}

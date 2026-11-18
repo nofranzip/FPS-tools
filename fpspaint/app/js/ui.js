@@ -179,7 +179,7 @@ const UI = {
   },
   async exitEditor() {
     if (S.playing) ANIM.stop(); if (S.textObj) TXT.commit(); if (S.fx) FX.cancel(); if (S.bgx) BGX.done(); this.closeAll();
-    if (S.imgObj) IMGF.commit(); const dirty = S.dirty, d0 = doc; S.fx = null; S.bgx = null; S.textObj = null; op = null; this.closeFx(); this.closeBgx(); $$('.modal').forEach(x => x.remove()); $$('.sheet.open').forEach(x => x.classList.remove('open')); this.sheetStack = []; $('#scrim').classList.remove('show'); $('#pscrim').classList.remove('show'); $('#panel').classList.remove('open');
+    if (S.imgObj) IMGF.commit(); if (S.balloon) BAL.commit(); const dirty = S.dirty, d0 = doc; S.fx = null; S.bgx = null; S.textObj = null; op = null; this.closeFx(); this.closeBgx(); $$('.modal').forEach(x => x.remove()); $$('.sheet.open').forEach(x => x.classList.remove('open')); this.sheetStack = []; $('#scrim').classList.remove('show'); $('#pscrim').classList.remove('show'); $('#panel').classList.remove('open');
     $('#editor').classList.add('hidden'); $('#gallery').classList.remove('hidden'); $('#refWin') && $('#refWin').remove();
     if (dirty) { this.toast('Guardando…', 1500); await new Promise(r => setTimeout(r, 30)); this.saving = saveDoc(true).catch(e => { console.error(e); this.toast('No se pudo guardar'); }); await this.saving; this.saving = null; }
     if (doc === d0) doc = null; this.renderGallery();
@@ -208,6 +208,7 @@ const UI = {
     rail.appendChild(el('<div class="sep"></div>'));
     const rf = el(`<button class="ib" title="Filtros">${ic('fx')}</button>`); rf.onclick = () => FX.open(); rail.appendChild(rf);
     const rb = el(`<button class="ib" title="Quitar fondo">${ic('bgx')}</button>`); rb.onclick = () => BGX.enter(); rail.appendChild(rb);
+    const rbal = el(`<button class="ib" title="Globos de texto">${ic('bubble')}</button>`); rbal.onclick = () => this.openBalloons(); rail.appendChild(rbal);
     const ra = el(`<button class="ib" title="Asistente IA">${ic('ai')}</button>`); ra.onclick = () => this.openAI(); rail.appendChild(ra);
     const rt = el(`<button class="ib" title="Opciones de la herramienta">${ic('sliders')}</button>`); rt.onclick = () => this.openTools(); rail.appendChild(rt);
     // panel lateral / inferior
@@ -545,6 +546,33 @@ const UI = {
   },
   flipLayer(hz) { const l = AL(); if (!canEdit()) return; const e = capPx(l), c = cloneCanvas(l.canvas); l.ctx.clearRect(0, 0, doc.w, doc.h); l.ctx.save(); if (hz) { l.ctx.translate(doc.w, 0); l.ctx.scale(-1, 1); } else { l.ctx.translate(0, doc.h); l.ctx.scale(1, -1); } l.ctx.drawImage(c, 0, 0); l.ctx.restore(); pushUndo(e); changed(); },
   async importLayer() { const f = await this.pickFile('image/*', false); if (!f.length) return; const im = await fileToImage(f[0]).catch(() => null); if (!im) { this.toast('No se pudo abrir la imagen'); return; } this.closePanel(); IMGF.start(im, f[0].name.replace(/\.[^.]+$/, '')); },
+  openBalloons() {
+    this.sheet('balpick', 'Globos de texto', body => {
+      const g = el('<div class="grid-tools" style="grid-template-columns:repeat(3,1fr)"></div>');
+      for (const [k, n] of BALLOONS) { const b = el(`<button class="tbtn" style="padding:8px 4px"></button>`); const c = BAL.preview(k); c.style.cssText = 'width:96px;height:72px;background:#d9dbe0;border-radius:8px'; b.appendChild(c); b.appendChild(document.createTextNode(n)); b.onclick = () => { this.closeSheet('balpick'); this.closePanel(); BAL.start(k); }; g.appendChild(b); }
+      body.appendChild(g);
+    });
+  },
+  openBalloonSheet() {
+    this.sheet('bal', 'Globo: ' + (BALLOONS.find(b => b[0] === S.balloon.type) || [0, ''])[1], body => {
+      const o = S.balloon, up = () => requestRender();
+      body.appendChild(el('<p style="color:var(--tx2);font-size:12.5px;margin:0 4px 8px">Arrastra el globo para moverlo · esquinas para el tamaño · punto naranja para la cola.</p>'));
+      const ta = el('<textarea class="inp" style="width:100%" rows="2" placeholder="Texto del globo (opcional)"></textarea>'); ta.value = o.text; ta.oninput = () => { o.text = ta.value; up(); }; body.appendChild(ta);
+      const fr = el('<div style="display:flex;gap:6px;overflow-x:auto;margin:8px 0;scrollbar-width:none"></div>');
+      for (const f of ['Comic Neue', 'Bangers', 'Permanent Marker', 'Luckiest Guy', 'Kalam', 'Noto Sans JP', 'Press Start 2P', 'system-ui']) { const b = el(`<button class="pill-btn ${o.font === f ? 'on' : ''}" style="flex:none;font-family:'${f}',system-ui">${f === 'system-ui' ? 'Sistema' : f}</button>`); b.onclick = () => { o.font = f; $$('.pill-btn', fr).forEach(x => x.classList.toggle('on', x === b)); up(); }; fr.appendChild(b); }
+      body.appendChild(fr);
+      const box = el('<div class="box"></div>');
+      box.appendChild(SRow('Tamaño de letra', { min: 6, max: 300, value: o.size, step: 1, unit: 'px', onInput: v => { o.size = v; up(); } }).el);
+      box.appendChild(SRow('Grosor del borde', { min: 0, max: 30, value: o.lw, step: .5, unit: 'px', onInput: v => { o.lw = v; up(); } }).el);
+      const tg = (lbl, key) => { const r = el(`<div class="row"><span class="lbl">${lbl}</span></div>`); r.appendChild(Toggle(o[key], v => { o[key] = v; up(); })); box.appendChild(r); };
+      tg('Con cola', 'hasTail'); tg('Negrita', 'bold'); tg('Texto vertical (manga)', 'vertical');
+      for (const [lbl, key] of [['Relleno', 'fill'], ['Borde', 'stroke'], ['Color del texto', 'tcol']]) { const r = el(`<div class="row"><span class="lbl">${lbl}</span></div>`); r.appendChild(this.colorBtn(o[key], c => { o[key] = c; up(); })); box.appendChild(r); }
+      const sh = el(`<button class="btn" style="margin-top:6px">${ic('rotate')}Otra forma al azar</button>`); sh.onclick = () => { o.seed = (Math.random() * 1e6) | 0; up(); }; box.appendChild(sh);
+      body.appendChild(box);
+      const row = el('<div class="row" style="margin-top:10px;gap:8px"><button class="btn" style="flex:1">Cancelar</button><button class="btn pri" style="flex:2">Colocar</button></div>'); row.children[0].onclick = () => BAL.cancel(); row.children[1].onclick = () => BAL.commit(); body.appendChild(row);
+    }, { dock: true, okIcon: 'check', onOk: () => BAL.commit() });
+    $('#scrim').classList.remove('show');
+  },
   openImgSheet() {
     this.sheet('imgf', 'Colocar imagen', body => {
       const o = S.imgObj; body.appendChild(el('<p style="color:var(--tx2);font-size:12.5px;margin:0 4px 8px">Arrastra la imagen para moverla · esquinas para el tamaño · ↻ para rotar.</p>'));
@@ -568,6 +596,7 @@ const UI = {
       for (const [id, name, icn] of TOOLS) { const b = el(`<button class="tbtn ${(S.frameTool ? id === 'frame' : id === S.tool) ? 'on' : ''}">${ic(icn)}${name}</button>`); b.onclick = () => { if (id === 'frame') { this.closeSheet('tools'); this.openFrameMenu(); return; } this.setTool(id); if (!['fill', 'shape', 'select', 'text'].includes(id)) this.closeSheet('tools'); }; g.appendChild(b); }
       const fxb = el(`<button class="tbtn">${ic('fx')}Filtros</button>`); fxb.onclick = () => { this.closeSheet('tools'); FX.open(); }; g.appendChild(fxb);
       const bg = el(`<button class="tbtn">${ic('bgx')}Quitar fondo</button>`); bg.onclick = () => { this.closeSheet('tools'); BGX.enter(); }; g.appendChild(bg);
+      const bal = el(`<button class="tbtn">${ic('bubble')}Globos</button>`); bal.onclick = () => { this.closeSheet('tools'); this.openBalloons(); }; g.appendChild(bal);
       const aib = el(`<button class="tbtn">${ic('ai')}Asistente IA</button>`); aib.onclick = () => { this.closeSheet('tools'); this.openAI(); }; g.appendChild(aib);
       body.appendChild(g); this.toolOpts(body);
     });
@@ -648,7 +677,7 @@ const UI = {
       const add = (icn, t, fn, sub) => { const r = el(`<div class="list-row">${ic(icn)}<div class="grow">${t}${sub ? `<div class="sub">${sub}</div>` : ''}</div></div>`); r.onclick = async () => { this.closeSheet('menu'); await fn(); }; box.appendChild(r); };
       add('save', 'Guardar', () => saveDoc()); add('share', 'Exportar…', () => this.openExport(), 'PNG, JPEG, PSD con capas, GIF, video, time-lapse');
       add('image', 'Importar imagen como capa', () => this.importLayer()); add('fx', 'Filtros', () => FX.open()); add('bgx', 'Quitar fondo', () => BGX.enter());
-      add('frame', 'Marcos de manga', () => this.openFrameMenu()); add('ai', 'Asistente IA', () => this.openAI(), 'Tu IA favorita te ayuda con tu dibujo');
+      add('frame', 'Marcos de manga', () => this.openFrameMenu()); add('bubble', 'Globos de texto', () => this.openBalloons()); add('ai', 'Asistente IA', () => this.openAI(), 'Tu IA favorita te ayuda con tu dibujo');
       if (!doc.anim) add('film', 'Convertir en animación', () => structOp(() => { doc.anim = true; this.renderTimeline(); fitView(); }));
       add('fit', 'Ajustar a pantalla', () => fitView()); add('pencil', 'Cambiar nombre', async () => { const n = await this.prompt('Nombre', doc.name); if (n) { doc.name = n; S.dirty = true; $('#docTitle').textContent = n + ' · ' + doc.w + '×' + doc.h; } });
       add('keyboard', 'Atajos de teclado', () => this.shortcuts()); add('grid', 'Volver a la galería', () => this.exitEditor());
@@ -957,8 +986,8 @@ const UI = {
 /* botón atrás de Android y pausa */
 window.fpsBack = function () {
   if ($$('.modal').length) { $$('.modal').pop().remove(); return true; }
-  if (UI.sheetStack.length) { const t = UI.sheetStack[UI.sheetStack.length - 1]; if (t.id === 'text') TXT.commit(); else if (t.id === 'imgf') IMGF.cancel(); else UI.closeSheet(); return true; }
-  if (S.imgObj) { IMGF.cancel(); return true; } if (S.fx) { FX.cancel(); return true; } if (S.bgx) { BGX.cancel(); return true; } if (S.textObj) { TXT.commit(); return true; }
+  if (UI.sheetStack.length) { const t = UI.sheetStack[UI.sheetStack.length - 1]; if (t.id === 'text') TXT.commit(); else if (t.id === 'imgf') IMGF.cancel(); else if (t.id === 'bal') BAL.cancel(); else UI.closeSheet(); return true; }
+  if (S.balloon) { BAL.cancel(); return true; } if (S.imgObj) { IMGF.cancel(); return true; } if (S.fx) { FX.cancel(); return true; } if (S.bgx) { BGX.cancel(); return true; } if (S.textObj) { TXT.commit(); return true; }
   if ($('#panel').classList.contains('open') && !UI.isWide()) { UI.closePanel(); return true; }
   if (S.playing) { ANIM.stop(); return true; }
   if (!$('#editor').classList.contains('hidden')) { UI.exitEditor(); return true; }
