@@ -54,7 +54,8 @@ svg.i .f{fill:currentColor;stroke:none}
 #editor{background:var(--work);overflow:hidden}
 #stage{position:absolute;inset:0;touch-action:none}
 #view{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
-.cap{background:rgba(44,47,52,.55);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border-radius:22px;display:flex;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.05)}
+#ants{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cap{background:rgba(44,47,52,.42);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border-radius:22px;display:flex;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.05)}
 .ib{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;color:var(--tx);position:relative}
 .ib:disabled{opacity:.3}
 .ib.on{color:var(--acc)}
@@ -345,7 +346,7 @@ body.wide .bitem canvas{width:112px}
 }
 
 /* paneles del editor más translúcidos */
-#panel,.sheet{background:rgba(38,40,44,.86);backdrop-filter:blur(16px) saturate(1.15);-webkit-backdrop-filter:blur(16px) saturate(1.15)}
+#panel,.sheet{background:rgba(38,40,44,.76);backdrop-filter:blur(16px) saturate(1.15);-webkit-backdrop-filter:blur(16px) saturate(1.15)}
 #panel .box,.sheet .box,.bitem,.lrow,.lact,.tbtn,.bcat.on,.fontbtn,.seg{background-color:rgba(255,255,255,.06)}
 #fxBar,.bgx-top,.bgx-bot{background:rgba(38,40,44,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 body.wide #rail{background:rgba(29,31,34,.82)}
@@ -359,8 +360,8 @@ body.wide #rail{background:rgba(29,31,34,.82)}
 /* en pantallas táctiles: sin desenfoque de fondo (es muy pesado mientras se dibuja) */
 @media (pointer:coarse){
   .cap,#panel,.sheet,#fxBar,.bgx-top,.bgx-bot{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-  .cap{background:rgba(38,40,44,.72)}
-  #panel,.sheet{background:rgba(36,38,42,.94)}
+  .cap{background:rgba(38,40,44,.48)}
+  #panel,.sheet{background:rgba(36,38,42,.8)}
 }
 #view{will-change:transform}
 /* hojas de objetos flotantes (texto, imagen, globo): bajitas para ver el lienzo */

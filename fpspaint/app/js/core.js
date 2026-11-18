@@ -324,6 +324,7 @@ function render() {
   if (S.balloon) BAL.draw(c);
   c.setTransform(d, 0, 0, d, 0, 0); c.imageSmoothingEnabled = true;
   drawOverlays(c);
+  ANTS.draw();
 }
 function drawOverlays(c) {
   const lw = 1;
@@ -338,7 +339,6 @@ function drawOverlays(c) {
   if (S.sel && !S.playing) {
     if (!S.sel.ov || S.sel.ovVer !== S.sel.ver) { const o = S.sel.ov && S.sel.ov.width === doc.w ? S.sel.ov : mkCanvas(doc.w, doc.h), ox = o.getContext('2d'); ox.globalCompositeOperation = 'source-over'; ox.clearRect(0, 0, doc.w, doc.h); ox.fillStyle = 'rgba(20,24,30,.42)'; ox.fillRect(0, 0, doc.w, doc.h); ox.globalCompositeOperation = 'destination-out'; ox.drawImage(S.sel.mask, 0, 0); S.sel.ov = o; S.sel.ovVer = S.sel.ver; }
     c.save(); setViewMatrix(c, V.dpr); c.drawImage(S.sel.ov, 0, 0);
-    if (S.sel.path) { c.lineWidth = 1.5 / V.s; c.setLineDash([5 / V.s, 4 / V.s]); c.strokeStyle = '#fff'; c.stroke(S.sel.path); c.lineDashOffset = 5 / V.s; c.strokeStyle = '#111'; c.stroke(S.sel.path); }
     c.restore();
   }
   // operación de selección en curso
@@ -367,6 +367,35 @@ function drawOverlays(c) {
   // lupa del gotero
   if (op && op.kind === 'pick' && op.col) { const p = op.scr; c.save(); c.lineWidth = 10; c.strokeStyle = hex(...op.col); c.beginPath(); c.arc(p.x, p.y - 70, 34, 0, 7); c.stroke(); c.lineWidth = 2; c.strokeStyle = '#fff'; c.beginPath(); c.arc(p.x, p.y - 70, 40, 0, 7); c.stroke(); c.restore(); }
 }
+
+/* ---------- líneas movedizas de la selección (en un lienzo aparte, liviano) ---------- */
+const ANTS = {
+  off: 0, tm: 0, ver: -1, path: null,
+  outline() {
+    const sel = S.sel; if (!sel) return null; if (this.ver === sel.ver && this.path) return this.path; this.ver = sel.ver;
+    if (sel.path) return this.path = sel.path;
+    const k = Math.min(1, 640 / Math.max(doc.w, doc.h)), w = Math.max(1, Math.round(doc.w * k)), h = Math.max(1, Math.round(doc.h * k));
+    const c = mkCanvas(w, h), x = c.getContext('2d'); x.drawImage(sel.mask, 0, 0, w, h); const d = x.getImageData(0, 0, w, h).data, on = (i, j) => i >= 0 && j >= 0 && i < w && j < h && d[(j * w + i) * 4 + 3] > 127;
+    const W1 = w + 1, adj = new Map(), add = (p1, p2) => { (adj.get(p1) || adj.set(p1, []).get(p1)).push(p2); (adj.get(p2) || adj.set(p2, []).get(p2)).push(p1); };
+    for (let j = 0; j <= h; j++) for (let i = 0; i < w; i++) if (on(i, j) !== on(i, j - 1)) add(j * W1 + i, j * W1 + i + 1);
+    for (let i = 0; i <= w; i++) for (let j = 0; j < h; j++) if (on(i, j) !== on(i - 1, j)) add(j * W1 + i, (j + 1) * W1 + i);
+    const p = new Path2D(), sx = doc.w / w, sy = doc.h / h, pt = q => [(q % W1) * sx, ((q / W1) | 0) * sy];
+    for (const [start] of adj) { let nb = adj.get(start); if (!nb.length) continue; let prev = start, cur = nb.pop(); adj.get(cur).splice(adj.get(cur).indexOf(prev), 1); p.moveTo(...pt(start)); let n = 0;
+      while (cur !== undefined && n++ < 2e6) { p.lineTo(...pt(cur)); const l = adj.get(cur); if (!l.length) break; const nx = l.pop(); const ln = adj.get(nx); ln.splice(ln.indexOf(cur), 1); prev = cur; cur = nx; } }
+    return this.path = p;
+  },
+  draw() {
+    const cv = document.getElementById('ants'); if (!cv) return; const dpr = V.dpr;
+    if (cv.width !== view.width || cv.height !== view.height) { cv.width = view.width; cv.height = view.height; }
+    const x = cv.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cv.width, cv.height);
+    if (!S.sel || !doc || S.playing) { this.stop(); return; }
+    const p = this.outline(); if (!p) return;
+    setViewMatrix(x, dpr); const u = 1 / V.s; x.lineWidth = 1.4 * u; x.setLineDash([5 * u, 5 * u]);
+    x.lineDashOffset = -this.off * u; x.strokeStyle = '#fff'; x.stroke(p); x.lineDashOffset = -(this.off + 5) * u; x.strokeStyle = '#111'; x.stroke(p);
+    if (!this.tm) this.tm = setInterval(() => { if (!S.sel || document.hidden) { this.stop(); return; } this.off = (this.off + 1) % 10; this.draw(); }, 90);
+  },
+  stop() { clearInterval(this.tm); this.tm = 0; },
+};
 
 /* ---------- motor de pinceles ---------- */
 const stampCache = new Map();

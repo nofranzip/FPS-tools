@@ -4,7 +4,7 @@
 /* ---------- selección ---------- */
 const SEL = {
   set(mask, path) { S.sel = { mask, path: path || null, ver: (S.sel ? S.sel.ver : 0) + 1 }; requestRender(); UI.onSel && UI.onSel(); },
-  none() { S.sel = null; requestRender(); UI.onSel && UI.onSel(); },
+  none() { S.sel = null; ANTS.stop(); requestRender(); UI.onSel && UI.onSel(); },
   fromPts(o) {
     if (o.pts.length < 3 || (o.mode === 'rect' && Math.abs(o.pts[2].x - o.a.x) < 2 && Math.abs(o.pts[2].y - o.a.y) < 2)) { this.none(); return; }
     const path = new Path2D(); o.pts.forEach((p, i) => i ? path.lineTo(p.x, p.y) : path.moveTo(p.x, p.y)); path.closePath();
