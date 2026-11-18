@@ -171,7 +171,7 @@ function fitView() {
   const r = stageRect(), wide = document.body.classList.contains('wide');
   const padT = wide ? 70 : 74, padB = wide ? (doc.anim ? 100 : 30) : (doc.anim ? 160 : 92), padX = wide ? 40 : 62;
   const aw = Math.max(50, r.width - padX * 2), ah = Math.max(50, r.height - padT - padB);
-  let s = Math.min(aw / doc.w, ah / doc.h); if (doc.pixel) s = Math.max(1, Math.floor(s)); s = Math.min(s, doc.pixel ? 64 : 8);
+  let s = Math.min(aw / doc.w, ah / doc.h); if (doc.pixel) { const k = V.dpr || 1; s = s * k >= 1 ? Math.max(1, Math.floor(s * k)) / k : s; } s = Math.min(s, doc.pixel ? 64 : 8);
   V.r = 0; V.s = s; V.x = (r.width - doc.w * s) / 2; V.y = padT + (ah - doc.h * s) / 2; requestRender(); UI.updRot && UI.updRot(); UI.updZoom && UI.updZoom();
 }
 function zoomAt(f, cx, cy) { const p = toDoc(cx, cy); V.s = clamp(V.s * f, .05, 64); const q = toScr(p.x, p.y); V.x += cx - q.x; V.y += cy - q.y; requestRender(); UI.updZoom && UI.updZoom(); }
@@ -300,7 +300,9 @@ function drawCached(c) {
   if (above.length) c.drawImage(cached('rcAbove'), 0, 0);
 }
 const BGX_BG = ['checker', '#ffffff', '#000000', '#22c55e', '#ef4444'];
-function render() {
+let _rerr = 0;
+function render() { try { render0(); } catch (e) { console.error(e); if (!_rerr++) UI.toast && UI.toast('Error al dibujar la vista: ' + e.message, 5000); } }
+function render0() {
   rafId = 0; if (!doc || !view) return;
   const c = vctx, d = V.dpr; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   c.fillStyle = S.bgx ? '#2a2c30' : '#56595f'; c.fillRect(0, 0, view.width, view.height);
@@ -335,6 +337,7 @@ function drawOverlays(c) {
     if (g * V.s >= 4) { for (let x = g; x < doc.w; x += g) L2(x, 0, x, doc.h); for (let y = g; y < doc.h; y += g) L2(0, y, doc.w, y); }
     c.stroke();
   }
+  if (doc.pixel && S.pixGrid !== false && V.s >= 6 && !S.playing) { c.save(); c.strokeStyle = 'rgba(0,0,0,.13)'; c.lineWidth = 1; c.beginPath(); const L2 = (x0, y0, x1, y1) => { const a = toScr(x0, y0), b = toScr(x1, y1); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); }; if (doc.w + doc.h <= 1200) { for (let x = 1; x < doc.w; x++) L2(x, 0, x, doc.h); for (let y = 1; y < doc.h; y++) L2(0, y, doc.w, y); } c.stroke(); c.restore(); }
   // selección
   if (S.sel && !S.playing) {
     if (!S.sel.ov || S.sel.ovVer !== S.sel.ver) { const o = S.sel.ov && S.sel.ov.width === doc.w ? S.sel.ov : mkCanvas(doc.w, doc.h), ox = o.getContext('2d'); ox.globalCompositeOperation = 'source-over'; ox.clearRect(0, 0, doc.w, doc.h); ox.fillStyle = 'rgba(20,24,30,.42)'; ox.fillRect(0, 0, doc.w, doc.h); ox.globalCompositeOperation = 'destination-out'; ox.drawImage(S.sel.mask, 0, 0); S.sel.ov = o; S.sel.ovVer = S.sel.ver; }

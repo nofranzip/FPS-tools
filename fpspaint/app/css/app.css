@@ -366,3 +366,8 @@ body.wide #rail{background:rgba(29,31,34,.82)}
 #view{will-change:transform}
 /* hojas de objetos flotantes (texto, imagen, globo): bajitas para ver el lienzo */
 body:not(.wide) .sheet.dockb{max-height:42vh}
+
+.pmv{width:34px;height:30px;display:grid;place-items:center;border-radius:10px;color:var(--tx);touch-action:none}
+.pmv svg.i{width:18px;height:18px;stroke-width:2.4}
+.pmv:active{background:rgba(255,255,255,.12)}
+@media (max-height:700px){ #sliders .sl.v{height:80px!important} }

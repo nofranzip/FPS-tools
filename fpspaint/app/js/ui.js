@@ -70,7 +70,7 @@ const UI = {
 
   /* ---------- inicio ---------- */
   async init() {
-    view = $('#view'); try { vctx = view.getContext('2d', { alpha: false, desynchronized: true }); } catch { } if (!vctx) vctx = view.getContext('2d');
+    view = $('#view'); vctx = view.getContext('2d');
     $('#gLogo').innerHTML = LOGO; $('#gNew').innerHTML = ic('plus'); $('#gImport').innerHTML = ic('upload') + '<span>Importar</span>'; $('#gPixel').innerHTML = ic('pixel') + '<span>Pixel art</span>'; $('#gPixel').onclick = () => this.openPixelNew();
     $('#pscrim').onclick = () => this.closePanel();
     $('#scrim').onclick = () => { const t = this.sheetStack[this.sheetStack.length - 1]; if (t && t.opts.modalLock) return; if (t) t.opts.onOk && t.opts.dock ? t.opts.onOk() : this.closeSheet(); else this.closePanel(); };
@@ -196,9 +196,14 @@ const UI = {
     const sl = $('#sliders'); sl.innerHTML = '';
     this.vSize = Slider({ vertical: true, min: .5, max: 1000, value: 10, ...SIZE_T, onInput: v => { setToolSize(this.isPixelBrush() ? Math.round(v) : v); this.updSizeLbl(); this.updDock(); this.syncPanelSliders(); hover.on = true; const r = stageRect(); if (!hover.x) { hover.x = r.width / 2; hover.y = r.height / 2; } requestRender(); }, onEnd: () => { if (!matchMedia('(hover:hover)').matches) { hover.on = false; requestRender(); } } });
     this.vOp = Slider({ vertical: true, min: 0, max: 1, value: 1, cls: 'chk', onInput: v => { const c = S.cfg[S.tool]; if (c) c.op = Math.max(.01, v); this.updSizeLbl(); this.syncPanelSliders(); } });
-    this.vSize.el.style.height = '140px'; this.vOp.el.style.height = '110px';
-    sl.append(el('<div class="vs-lbl" id="vsSize">10</div>'), this.vSize.el, el('<div class="vsep"></div>'), this.vOp.el, el('<div class="vs-lbl" id="vsOp">100%</div>'));
-    const pk = el(`<button class="ib" title="Gotero (mantén presionado el lienzo)" style="width:40px;height:40px">${ic('picker')}</button>`); pk.onclick = () => this.setTool('picker'); sl.append(el('<div class="vsep"></div>'), pk);
+    this.vSize.el.style.height = '112px'; this.vOp.el.style.height = '88px';
+    const pmb = (sign, fn, title) => { const b = el(`<button class="pmv" title="${title}">${ic(sign > 0 ? 'plus' : 'minus')}</button>`); let t1 = 0, t2 = 0; const stop = () => { clearTimeout(t1); clearInterval(t2); }; b.addEventListener('pointerdown', e => { e.preventDefault(); fn(sign); t1 = setTimeout(() => { t2 = setInterval(() => fn(sign), 70); }, 380); }); b.addEventListener('pointerup', stop); b.addEventListener('pointerleave', stop); b.addEventListener('pointercancel', stop); return b; };
+    const bumpSize = d => { const v = toolSize(); let n; if (this.isPixelBrush() || (doc && doc.pixel && (S.tool === 'brush' || S.tool === 'eraser'))) n = Math.round(v) + d; else n = v < 10 ? v + d * .5 : v < 50 ? Math.round(v) + d : v < 200 ? Math.round(v) + d * 5 : Math.round(v) + d * 20; setToolSize(Math.max(.5, n)); this.updDock(); this.syncPanelSliders(); hover.on = true; const r = stageRect(); if (!hover.x) { hover.x = r.width / 2; hover.y = r.height / 2; } requestRender(); };
+    const bumpOp = d => { const c = S.cfg[S.tool]; if (!c) return; c.op = clamp(Math.round(c.op * 100 + d) / 100, .01, 1); this.updDock(); this.syncPanelSliders(); };
+    sl.append(el('<div class="vs-lbl" id="vsSize">10</div>'), pmb(1, bumpSize, 'Más grosor'), this.vSize.el, pmb(-1, bumpSize, 'Menos grosor'), el('<div class="vsep"></div>'), pmb(1, bumpOp, 'Más opacidad'), this.vOp.el, pmb(-1, bumpOp, 'Menos opacidad'), el('<div class="vs-lbl" id="vsOp">100%</div>'));
+    const pk = el(`<button class="ib" title="Gotero (mantén presionado el lienzo)" style="width:40px;height:40px">${ic('picker')}</button>`); pk.onclick = () => this.setTool('picker');
+    const qs = el(`<button class="ib" id="bQuick" title="Pincel / borrador" style="width:40px;height:40px"></button>`); qs.onclick = () => this.setTool(S.tool === 'brush' ? 'eraser' : 'brush');
+    sl.append(el('<div class="vsep"></div>'), qs, pk);
     // dock (teléfono)
     $('#dock').innerHTML = `<button class="ib" id="dTool" title="Herramientas"></button><button class="ib" id="dSize" title="Pinceles"><div class="sizeb"><i></i><span>10</span></div></button><button class="ib" id="dColor" title="Color"><div class="swatch"></div></button><button class="ib lyrb" id="dLayers" title="Capas">${ic('layers')}<b>1</b></button><button class="ib" id="dFx" title="Filtros">${ic('fx')}</button><button class="ib" id="dBack" title="Galería">${ic('grid')}</button>`;
     $('#dTool').onclick = () => this.openTools(); $('#dSize').onclick = () => this.togglePanel('brush'); $('#dColor').onclick = () => this.togglePanel('color'); $('#dLayers').onclick = () => this.togglePanel('layers'); $('#dFx').onclick = () => FX.open(); $('#dBack').onclick = () => this.exitEditor();
@@ -224,6 +229,7 @@ const UI = {
   isPixelBrush() { return (S.tool === 'brush' || S.tool === 'eraser') && BR[S.cfg[S.tool].id] && BR[S.cfg[S.tool].id].pixel; },
   updSizeLbl() { $('#vsSize').textContent = sizeFmt(toolSize()); $('#vsOp').textContent = Math.round(toolOp() * 100) + '%'; },
   updDock() {
+    const q = $('#bQuick'); if (q) { q.innerHTML = ic(S.tool === 'brush' ? 'eraser' : 'brush'); q.title = S.tool === 'brush' ? 'Cambiar a borrador' : 'Volver al pincel'; q.classList.toggle('on', S.tool !== 'brush' && S.tool !== 'eraser'); }
     const t = TOOLS.find(x => x[0] === S.tool); $('#dTool').innerHTML = ic(t ? t[2] : 'brush'); const sz = toolSize(); const sb = $('#dSize .sizeb'); sb.querySelector('span').textContent = sizeFmt(sz); const d = clamp(Math.sqrt(sz) * 3, 4, 36); const i = sb.querySelector('i'); i.style.width = i.style.height = d + 'px';
     $('#dLayers b').textContent = L().length; this.vSize.set(toolSize()); this.vOp.set(toolOp()); this.updSizeLbl();
     $('#sliders').classList.toggle('hidden', !S.cfg[S.tool] || ['fill', 'select'].includes(S.tool) && false);
@@ -657,6 +663,7 @@ const UI = {
     this.sheet('view', 'Vista', body => {
       const b = el('<div class="box"></div>');
       const r1 = el('<div class="row"><span class="lbl">Ventana de referencia</span></div>'); r1.appendChild(Toggle(!!$('#refWin'), v => { REF.on = v; this.renderRef(); })); b.appendChild(r1);
+      if (doc.pixel) { const rp = el('<div class="row"><span class="lbl">Cuadrícula de píxeles al hacer zoom</span></div>'); rp.appendChild(Toggle(S.pixGrid !== false, v => { S.pixGrid = v; requestRender(); })); b.appendChild(rp); }
       const r2 = el('<div class="row"><span class="lbl">Cuadrícula</span></div>'); r2.appendChild(Toggle(S.grid.on, v => { S.grid.on = v; requestRender(); })); b.appendChild(r2);
       b.appendChild(SRow('Tamaño de cuadrícula', { min: 2, max: 256, value: S.grid.size, step: 1, unit: 'px', onInput: v => { S.grid.size = v; requestRender(); } }).el);
       b.appendChild(el('<div style="font-size:13.5px;margin:8px 0 2px">Rotar el lienzo</div>'));
