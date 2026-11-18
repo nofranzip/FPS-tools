@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#141517">
+<title>FPSpaint</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!-- galería -->
+<section id="gallery" class="screen">
+  <header class="g-head">
+    <div class="logo"><div class="logo-mark" id="gLogo"></div><div><div class="logo-name">FPS<b>paint</b></div><div class="g-sub" id="gCount">Mis dibujos</div></div></div>
+    <div class="sp"></div>
+    <button class="pill-btn" id="gPixel" title="Nuevo pixel art"></button>
+    <button class="pill-btn" id="gImport" title="Importar imagen o PSD"></button>
+    <button class="pill-btn" id="gSel">Elegir</button>
+  </header>
+  <div id="gBanner"></div>
+  <div id="gGrid"></div>
+  <button class="fab" id="gNew" title="Nuevo dibujo"></button>
+  <div id="gBar" class="hidden"></div>
+</section>
+
+<!-- editor -->
+<section id="editor" class="screen hidden">
+  <div id="stage"><canvas id="view"></canvas></div>
+  <nav id="rail"></nav>
+  <div id="topbar">
+    <div class="cap" id="tbLeft"></div>
+    <div id="docTitle"></div>
+    <div class="cap" id="tbRight"></div>
+  </div>
+  <div class="cap" id="sliders"></div>
+  <div class="cap hidden" id="timeline"></div>
+  <div class="cap" id="dock"></div>
+  <div id="saveDot">Guardado</div>
+  <div class="scrim clear" id="pscrim"></div>
+  <div id="panel" class="sheet"></div>
+</section>
+
+<div class="scrim" id="scrim"></div>
+<div id="sheets"></div>
+<div id="toast"></div>
+<input type="file" id="fileIn" class="hidden">
+
+<script src="js/vendor/jsQR.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/core.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/anim.js"></script>
+<script src="js/io.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ai.js"></script>
+</body>
+</html>

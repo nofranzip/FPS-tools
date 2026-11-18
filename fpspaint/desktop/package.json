@@ -1,0 +1,48 @@
+{
+  "name": "fpspaint",
+  "productName": "FPSpaint",
+  "version": "1.1.1",
+  "description": "FPSpaint — programa de dibujo, animación y manga",
+  "author": "Nova_323",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "dev.fpspaint.app",
+    "productName": "FPSpaint",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "FPSpaint",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "FPSpaint-Setup-${version}.exe",
+      "language": "3082"
+    },
+    "fileAssociations": [
+      {
+        "ext": "fpsbrush",
+        "name": "Pincel de FPSpaint"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

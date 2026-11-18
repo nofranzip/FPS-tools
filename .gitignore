@@ -1,0 +1,7 @@
+node_modules/
+dist/
+fpspaint/desktop/app/
+fpspaint/android/build/
+fpspaint/android/assets/
+*.jks
+*.keystore
