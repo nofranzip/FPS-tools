@@ -309,8 +309,8 @@ body.wide #panel .tabs{display:flex;margin:10px 12px 0;flex:none}
 body.wide #panel .sh-head{display:none}
 body.wide .sheet:not(#panel){left:50%;right:auto;bottom:auto;top:50%;width:min(460px,92vw);max-height:84vh;border-radius:20px;transform:translate(-50%,-46%) scale(.97);opacity:0;pointer-events:none;transition:transform .18s,opacity .18s}
 body.wide .sheet:not(#panel).open{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
-body.wide .sheet.dockb:not(#panel){top:auto;bottom:16px;transform:translate(-50%,10px);width:min(520px,60vw)}
-body.wide .sheet.dockb:not(#panel).open{transform:translate(-50%,0)}
+body.wide .sheet.dockb:not(#panel){top:auto;bottom:12px;left:auto;right:12px;transform:translateY(10px);width:min(350px,40vw);max-height:calc(100vh - 24px)}
+body.wide .sheet.dockb:not(#panel).open{transform:none}
 body.wide .sheet .grab{display:none}
 body.wide #fxBar{left:62px;right:340px;border-radius:18px 18px 0 0}
 body.wide .bgx-top,body.wide .bgx-bot{left:0;right:0}

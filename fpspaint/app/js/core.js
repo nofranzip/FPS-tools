@@ -152,7 +152,7 @@ function applyEntry(e, dir) {
   } else if (e.type === 'st') applyStruct(dir < 0 ? e.before : e.after);
   else if (e.type === 'multi') { const l = dir < 0 ? e.list.slice().reverse() : e.list; l.forEach(x => applyEntry(x, dir)); }
 }
-function undo() { if (S.textObj || !S.undo.length || (S.bgx && S.undo.length <= S.bgx.undoStart)) return; cancelOp(); const e = S.undo.pop(); applyEntry(e, -1); S.redo.push(e); changed(true); }
+function undo() { if (S.imgObj && S.imgObj.layer) { IMGF.cancel(); return; } if (S.textObj || !S.undo.length || (S.bgx && S.undo.length <= S.bgx.undoStart)) return; cancelOp(); const e = S.undo.pop(); applyEntry(e, -1); S.redo.push(e); changed(true); }
 function redo() { if (S.textObj || !S.redo.length) return; const e = S.redo.pop(); applyEntry(e, 1); S.undo.push(e); changed(true); }
 function changed(struct) { S.dirty = true; doc.updated = Date.now(); if (struct) { for (const l of L()) l.ver++; } else if (AL()) AL().ver++; requestRender(); if (UI.onChanged) UI.onChanged(struct); }
 

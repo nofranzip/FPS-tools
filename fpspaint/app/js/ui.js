@@ -3,7 +3,7 @@
 const TOOLS = [
   ['brush', 'Pincel', 'brush', 'B'], ['eraser', 'Borrador', 'eraser', 'E'], ['smudge', 'Difuminar', 'smudge', 'S'], ['blur', 'Desenfocar', 'blur', 'R'],
   ['fill', 'Relleno', 'fill', 'G'], ['picker', 'Gotero', 'picker', 'I'], ['shape', 'Figuras', 'shape', 'U'], ['text', 'Texto', 'text', 'T'],
-  ['select', 'Selección', 'select', 'M'], ['move', 'Mover capa', 'move', 'V'], ['hand', 'Mano', 'hand', 'H'], ['frame', 'Marcos', 'frame', 'K']];
+  ['select', 'Selección', 'select', 'M'], ['move', 'Mover / tamaño de capa', 'move', 'V'], ['hand', 'Mano', 'hand', 'H'], ['frame', 'Marcos', 'frame', 'K']];
 const SHAPES = [['line', 'Línea'], ['rect', 'Rectángulo'], ['ellipse', 'Elipse'], ['poly', 'Hexágono'], ['star', 'Estrella'], ['bubble', 'Globo de diálogo']];
 const isFrame = () => window.self !== window.top;
 
@@ -235,8 +235,9 @@ const UI = {
     $('#sliders').classList.toggle('hidden', !S.cfg[S.tool] || ['fill', 'select'].includes(S.tool) && false);
   },
   setTool(t) {
-    if (S.textObj && t !== 'text') TXT.commit(); if (S.frameTool) this.setFrameTool(false);
+    if (S.textObj && t !== 'text') TXT.commit(); if (S.frameTool) this.setFrameTool(false); if (S.imgObj && S.imgObj.layer && t !== 'move') IMGF.commit();
     if (t !== S.tool) S.prevTool = S.tool; S.tool = t; this.updTool(); this.updDock(); this.refreshBrushList(); this.syncPanelSliders(); requestRender();
+    if (t === 'move' && !S.imgObj && doc && !IMGF.startLayer()) { S.tool = S.prevTool !== 'move' ? S.prevTool : 'brush'; this.updTool(); this.updDock(); }
     if (this.sheetStack.some(s => s.id === 'tools')) this.openTools();
   },
   updTool() { $$('#rail [data-tool]').forEach(b => b.classList.toggle('on', S.frameTool ? b.dataset.tool === 'frame' : b.dataset.tool === S.tool)); const hand = S.tool === 'hand'; view.style.cursor = hand ? 'grab' : S.tool === 'move' ? 'move' : S.tool === 'text' ? 'text' : (['brush', 'eraser', 'smudge', 'blur'].includes(S.tool) ? 'none' : 'crosshair'); },
@@ -543,6 +544,7 @@ const UI = {
       add('layers', 'Añadir capa desde el lienzo', () => structOp(() => { const n = newLayer('Lienzo combinado'); drawLayers(n.ctx, FR().layers, {}); FR().layers.splice(FR().active + 1, 0, n); FR().active++; }), 'Copia de todo lo visible en una capa nueva');
       add('alpha', 'Seleccionar opacidad', () => SEL.fromAlpha(l), 'Selecciona lo dibujado en esta capa');
       add('image', 'Importar imagen como capa', () => this.importLayer());
+      add('move', 'Mover / cambiar tamaño', () => this.setTool('move'), 'Arrastra, estira o rota el contenido de la capa');
       add('flip', 'Voltear capa horizontal', () => this.flipLayer(true)); add('flipv', 'Voltear capa vertical', () => this.flipLayer(false));
       add(l.locked ? 'unlock' : 'lock', l.locked ? 'Desbloquear capa' : 'Bloquear capa', () => structOp(() => { l.locked = !l.locked; }));
       if (l.frames) add('frame', 'Rasterizar marcos', () => FRAMES.rasterize(l), 'Convierte los marcos en una capa normal');
@@ -581,17 +583,20 @@ const UI = {
     $('#scrim').classList.remove('show');
   },
   openImgSheet() {
-    this.sheet('imgf', 'Colocar imagen', body => {
-      const o = S.imgObj; body.appendChild(el('<p style="color:var(--tx2);font-size:12.5px;margin:0 4px 8px">Arrastra la imagen para moverla · esquinas para el tamaño · ↻ para rotar.</p>'));
+    const tl = S.imgObj && S.imgObj.layer;
+    this.sheet('imgf', tl ? 'Mover y redimensionar capa' : 'Colocar imagen', body => {
+      const o = S.imgObj; body.appendChild(el(`<p style="color:var(--tx2);font-size:12.5px;margin:0 4px 8px">Arrastra para mover · esquinas para el tamaño · ↔ ↕ para estirar · ↻ para rotar.</p>`));
+      body.appendChild(SRow('Tamaño', { min: 1, max: 400, value: o.sc * 100, step: 1, fmt: v => Math.round(v) + '%', onInput: v => { o.sc = v / 100; requestRender(); } }).el);
       body.appendChild(SRow('Opacidad', { min: 0, max: 1, value: o.op, step: .01, fmt: v => Math.round(v * 100) + '%', onInput: v => { o.op = v; requestRender(); } }).el);
       const g = el('<div class="grid-tools" style="grid-template-columns:repeat(4,1fr);margin-top:8px"></div>');
       const b = (icn, t, fn) => { const x = el(`<button class="tbtn">${ic(icn)}${t}</button>`); x.onclick = fn; g.appendChild(x); };
       b('flip', 'Voltear', () => { o.fx *= -1; requestRender(); });
       b('rotate', 'Girar 90°', () => { o.rot += Math.PI / 2; requestRender(); });
+      if (tl) b('repair', 'Restablecer', () => { o.sc = 1; o.ax = 1; o.ay = 1; o.rot = 0; o.fx = 1; o.x = o._x0; o.y = o._y0; requestRender(); });
       b('fit', 'Ajustar', () => { o.sc = Math.min(doc.w / o.img.width, doc.h / o.img.height); o.x = doc.w / 2; o.y = doc.h / 2; o.rot = 0; requestRender(); });
       b('grid', 'Llenar', () => { o.sc = Math.max(doc.w / o.img.width, doc.h / o.img.height); o.x = doc.w / 2; o.y = doc.h / 2; o.rot = 0; requestRender(); });
       body.appendChild(g);
-      const row = el('<div class="row" style="margin-top:10px;gap:8px"><button class="btn" style="flex:1">Cancelar</button><button class="btn pri" style="flex:2">Colocar</button></div>'); row.children[0].onclick = () => IMGF.cancel(); row.children[1].onclick = () => IMGF.commit(); body.appendChild(row);
+      const row = el('<div class="row" style="margin-top:10px;gap:8px"><button class="btn" style="flex:1">Cancelar</button><button class="btn pri" style="flex:2">' + (tl ? 'Aplicar' : 'Colocar') + '</button></div>'); row.children[0].onclick = () => IMGF.cancel(); row.children[1].onclick = () => IMGF.commit(); body.appendChild(row);
     }, { dock: true, okIcon: 'check', onOk: () => IMGF.commit() });
     $('#scrim').classList.remove('show');
   },

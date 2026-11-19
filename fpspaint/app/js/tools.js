@@ -157,25 +157,42 @@ const TXT = {
 const IMGF = {
   start(img, name) {
     if (S.textObj) TXT.commit(); const k = Math.min(1, doc.w * .8 / img.width, doc.h * .8 / img.height);
-    S.imgObj = { img, name, x: doc.w / 2, y: doc.h / 2, sc: k, rot: 0, fx: 1, op: 1 }; requestRender(); UI.openImgSheet();
+    S.imgObj = { img, name, x: doc.w / 2, y: doc.h / 2, sc: k, rot: 0, fx: 1, ax: 1, ay: 1, op: 1 }; requestRender(); UI.openImgSheet();
   },
-  corners() { const o = S.imgObj, w = o.img.width * o.sc, h = o.img.height * o.sc, cs = Math.cos(o.rot), sn = Math.sin(o.rot); const pt = (dx, dy) => toScr(o.x + dx * cs - dy * sn, o.y + dx * sn + dy * cs); return { tl: pt(-w / 2, -h / 2), tr: pt(w / 2, -h / 2), br: pt(w / 2, h / 2), bl: pt(-w / 2, h / 2), rot: pt(0, -h / 2 - 40 / V.s), w, h }; },
-  draw(c) { const o = S.imgObj; c.save(); c.globalAlpha = o.op; c.translate(o.x, o.y); c.rotate(o.rot); c.scale(o.sc * o.fx, o.sc); c.imageSmoothingEnabled = !doc.pixel; c.drawImage(o.img, -o.img.width / 2, -o.img.height / 2); c.restore(); },
+  // transformar la capa actual (o la selección): mover, cambiar tamaño, estirar y rotar
+  startLayer() {
+    if (S.imgObj) return; if (S.textObj) TXT.commit(); const l = AL(); if (!l || !canEdit()) return false;
+    const W = doc.w, H = doc.h; let src = l.canvas;
+    if (S.sel) { src = mkCanvas(W, H); const x = src.getContext('2d'); x.drawImage(l.canvas, 0, 0); x.globalCompositeOperation = 'destination-in'; x.drawImage(S.sel.mask, 0, 0); }
+    const d = src.getContext('2d').getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) { const r = y * W * 4; for (let x = 0; x < W; x++) if (d[r + x * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; y1 = y; } }
+    if (x1 < 0) { UI.toast(S.sel ? 'No hay nada dibujado en la selección' : 'La capa está vacía'); return false; }
+    const w = x1 - x0 + 1, h = y1 - y0 + 1, img = mkCanvas(w, h); img.getContext('2d').drawImage(src, x0, y0, w, h, 0, 0, w, h);
+    const backup = cloneCanvas(l.canvas), c = l.ctx;
+    if (S.sel) { c.save(); c.globalCompositeOperation = 'destination-out'; c.drawImage(S.sel.mask, 0, 0); c.restore(); SEL.none(); } else c.clearRect(x0, y0, w, h);
+    l.ver++; S.imgObj = { img, name: l.name, x: x0 + w / 2, y: y0 + h / 2, sc: 1, rot: 0, fx: 1, ax: 1, ay: 1, op: 1, layer: l, backup, _x0: x0 + w / 2, _y0: y0 + h / 2 };
+    requestRender(); UI.openImgSheet(); return true;
+  },
+  corners() { const o = S.imgObj, w = o.img.width * o.sc * (o.ax || 1), h = o.img.height * o.sc * (o.ay || 1), cs = Math.cos(o.rot), sn = Math.sin(o.rot); const pt = (dx, dy) => toScr(o.x + dx * cs - dy * sn, o.y + dx * sn + dy * cs); return { tl: pt(-w / 2, -h / 2), tr: pt(w / 2, -h / 2), br: pt(w / 2, h / 2), bl: pt(-w / 2, h / 2), rot: pt(0, -h / 2 - 40 / V.s), mr: pt(w / 2, 0), mb: pt(0, h / 2), w, h }; },
+  draw(c) { const o = S.imgObj; c.save(); c.globalAlpha = o.op; c.translate(o.x, o.y); c.rotate(o.rot); c.scale(o.sc * o.fx * (o.ax || 1), o.sc * (o.ay || 1)); c.imageSmoothingEnabled = !doc.pixel; c.drawImage(o.img, -o.img.width / 2, -o.img.height / 2); c.restore(); },
   overlay(c) { const k = this.corners(); c.save(); c.setLineDash([6, 4]); c.lineWidth = 1.5; c.strokeStyle = '#58d3b0'; c.beginPath(); c.moveTo(k.tl.x, k.tl.y); c.lineTo(k.tr.x, k.tr.y); c.lineTo(k.br.x, k.br.y); c.lineTo(k.bl.x, k.bl.y); c.closePath(); c.stroke(); c.setLineDash([]);
     const top = { x: (k.tl.x + k.tr.x) / 2, y: (k.tl.y + k.tr.y) / 2 }; c.beginPath(); c.moveTo(top.x, top.y); c.lineTo(k.rot.x, k.rot.y); c.stroke();
     const dot = (p, t) => { c.fillStyle = '#1d1f22'; c.beginPath(); c.arc(p.x, p.y, 16, 0, 7); c.fill(); c.strokeStyle = '#58d3b0'; c.lineWidth = 2; c.stroke(); c.fillStyle = '#58d3b0'; c.font = '600 14px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, p.x, p.y + .5); };
-    dot(k.rot, '↻'); dot(k.br, '⤡'); dot(k.tl, '⤡'); dot(k.tr, '⤢'); dot(k.bl, '⤢'); c.restore(); },
+    dot(k.rot, '↻'); dot(k.br, '⤡'); dot(k.tl, '⤡'); dot(k.tr, '⤢'); dot(k.bl, '⤢'); dot(k.mr, '↔'); dot(k.mb, '↕'); c.restore(); },
   down(p, s) { const o = S.imgObj, k = this.corners(); this.st = { p, x: o.x, y: o.y, rot: o.rot, sc: o.sc }; this.mode = 'move';
-    if (Math.hypot(s.sx - k.rot.x, s.sy - k.rot.y) < 26) this.mode = 'rot'; else if (['tl', 'tr', 'br', 'bl'].some(n => Math.hypot(s.sx - k[n].x, s.sy - k[n].y) < 26)) this.mode = 'scale'; return true; },
+    if (Math.hypot(s.sx - k.rot.x, s.sy - k.rot.y) < 26) this.mode = 'rot'; else if (Math.hypot(s.sx - k.mr.x, s.sy - k.mr.y) < 24) this.mode = 'sx'; else if (Math.hypot(s.sx - k.mb.x, s.sy - k.mb.y) < 24) this.mode = 'sy'; else if (['tl', 'tr', 'br', 'bl'].some(n => Math.hypot(s.sx - k[n].x, s.sy - k[n].y) < 26)) this.mode = 'scale'; return true; },
   move(p) { const o = S.imgObj, st = this.st; if (!o) return;
     if (this.mode === 'move') { o.x = st.x + p.x - st.p.x; o.y = st.y + p.y - st.p.y; }
     else if (this.mode === 'rot') { o.rot = st.rot + Math.atan2(p.y - st.y, p.x - st.x) - Math.atan2(st.p.y - st.y, st.p.x - st.x); const q = Math.PI / 2, r = ((o.rot % q) + q) % q; if (r < .05 || q - r < .05) o.rot = Math.round(o.rot / q) * q; }
+    else if (this.mode === 'sx' || this.mode === 'sy') { const cs = Math.cos(-o.rot), sn = Math.sin(-o.rot), dx = p.x - o.x, dy = p.y - o.y, lx = dx * cs - dy * sn, ly = dx * sn + dy * cs;
+      if (this.mode === 'sx') o.ax = clamp(Math.abs(lx) * 2 / (o.img.width * o.sc), .01, 40); else o.ay = clamp(Math.abs(ly) * 2 / (o.img.height * o.sc), .01, 40); }
     else { const d0 = Math.hypot(st.p.x - st.x, st.p.y - st.y) || 1; o.sc = clamp(st.sc * Math.hypot(p.x - st.x, p.y - st.y) / d0, .01, 40); }
     requestRender(); },
   commit() { const o = S.imgObj; if (!o) return; S.imgObj = null; UI.closeSheet('imgf');
-    structOp(() => { const n = newLayer((o.name || 'Imagen').slice(0, 24)); n.folder = AL() ? AL().folder || null : null; const x = n.ctx; x.save(); x.globalAlpha = o.op; x.translate(o.x, o.y); x.rotate(o.rot); x.scale(o.sc * o.fx, o.sc); x.imageSmoothingEnabled = !doc.pixel; x.imageSmoothingQuality = 'high'; x.drawImage(o.img, -o.img.width / 2, -o.img.height / 2); x.restore(); FR().layers.splice(FR().active + 1, 0, n); FR().active++; });
+    if (o.layer) { const l = o.layer, x = l.ctx; x.save(); x.globalAlpha = o.op; x.translate(o.x, o.y); x.rotate(o.rot); x.scale(o.sc * o.fx * o.ax, o.sc * o.ay); x.imageSmoothingEnabled = !doc.pixel; x.imageSmoothingQuality = 'high'; x.drawImage(o.img, -o.img.width / 2, -o.img.height / 2); x.restore(); l.ver++; pushUndo(pxEntry(l, 0, 0, doc.w, doc.h, o.backup)); changed(); if (S.tool === 'move') UI.setTool(S.prevTool && S.prevTool !== 'move' ? S.prevTool : 'brush'); return; }
+    structOp(() => { const n = newLayer((o.name || 'Imagen').slice(0, 24)); n.folder = AL() ? AL().folder || null : null; const x = n.ctx; x.save(); x.globalAlpha = o.op; x.translate(o.x, o.y); x.rotate(o.rot); x.scale(o.sc * o.fx * (o.ax || 1), o.sc * (o.ay || 1)); x.imageSmoothingEnabled = !doc.pixel; x.imageSmoothingQuality = 'high'; x.drawImage(o.img, -o.img.width / 2, -o.img.height / 2); x.restore(); FR().layers.splice(FR().active + 1, 0, n); FR().active++; });
     UI.toast('Imagen añadida en una capa nueva'); },
-  cancel() { S.imgObj = null; UI.closeSheet('imgf'); requestRender(); },
+  cancel() { const o = S.imgObj; S.imgObj = null; UI.closeSheet('imgf'); if (o && o.layer) { const l = o.layer; l.ctx.clearRect(0, 0, doc.w, doc.h); l.ctx.drawImage(o.backup, 0, 0); l.ver++; if (S.tool === 'move') UI.setTool(S.prevTool && S.prevTool !== 'move' ? S.prevTool : 'brush'); } requestRender(); },
 };
 
 /* ---------- globos de texto ---------- */
