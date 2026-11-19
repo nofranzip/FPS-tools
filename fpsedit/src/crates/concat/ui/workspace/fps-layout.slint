@@ -17,6 +17,7 @@ import { Editor } from "../editor.slint";
 import { Glyph, Icon } from "../icons.slint";
 import { I18n } from "../i18n.slint";
 import { Seat } from "seat.slint";
+import { AssistantPane } from "assistant-pane.slint";
 import { PaneKind } from "pane-switcher.slint";
 import { MediaFilter } from "media-pane.slint";
 import { Keyframes } from "../timeline/model.slint";
@@ -24,11 +25,11 @@ import { FpsKeys } from "../timeline/fps-keys.slint";
 
 /// FPSedit's red, the logo's.
 global Fps {
-    out property <color> red: #f2464b;
-    out property <color> page: Theme.dark ? #111113 : #e9e9ec;
-    out property <color> card: Theme.dark ? #1c1c1f : #ffffff;
-    out property <color> ink: Theme.dark ? #f2f2f4 : #1c1c1f;
-    out property <color> ink-dim: Theme.dark ? #f2f2f455 : #1c1c1f55;
+    out property <color> red: Theme.accent;
+    out property <color> page: Theme.dark ? Theme.launch-page : Theme.page;
+    out property <color> card: Theme.panel;
+    out property <color> ink: Theme.fg;
+    out property <color> ink-dim: Theme.fg-dim;
     out property <color> hover: Theme.dark ? #ffffff14 : #0000000f;
 }
 
@@ -37,26 +38,38 @@ global Fps {
 component RailButton inherits Rectangle {
     in property <Glyph> glyph;
     in property <string> label;
+    /// The short name under the glyph; none on the column's head.
+    in property <string> caption;
     in property <bool> enabled: true;
     in property <bool> active;
     in property <bool> filled;
     callback clicked();
 
-    width: 56px;
-    height: 52px;
-    border-radius: 14px;
-    background: root.active ? Fps.red.with-alpha(0.22)
+    width: 64px;
+    height: root.caption == "" ? 44px : 56px;
+    border-radius: 12px;
+    background: root.active ? Fps.red.with-alpha(0.2)
         : touch.has-hover && root.enabled ? Fps.hover : transparent;
     accessible-role: button;
     accessible-label: root.label;
 
     Icon {
-        x: (parent.width - 24px) / 2;
-        y: (parent.height - 24px) / 2;
+        x: (parent.width - 22px) / 2;
+        y: root.caption == "" ? (parent.height - 22px) / 2 : 8px;
         glyph: root.glyph;
-        size: 24px;
+        size: 22px;
         filled: root.filled;
         tint: !root.enabled ? Fps.ink-dim : root.active ? Fps.red : Fps.ink;
+    }
+    if root.caption != "": Text {
+        x: 0;
+        y: 34px;
+        width: parent.width;
+        horizontal-alignment: center;
+        text: root.caption;
+        font-size: 10px;
+        color: !root.enabled ? Fps.ink-dim : root.active ? Fps.red : Theme.fg-muted;
+        overflow: elide;
     }
 
     touch := TouchArea {
@@ -109,6 +122,7 @@ component HubButton inherits Rectangle {
 /// things that lie over the picture.
 component Hub inherits Rectangle {
     callback open-library(tab: int);
+    callback captions();
 
     property <bool> layers;
     property <length> d: Math.min(330px, Math.min(root.width, root.height) - 16px);
@@ -187,7 +201,7 @@ component Hub inherits Rectangle {
         }
         centre-touch := TouchArea {
             mouse-cursor: pointer;
-            clicked => { Editor.captions(); }
+            clicked => { root.captions(); }
         }
     }
 
@@ -345,18 +359,19 @@ export component FpsWorkspace inherits Rectangle {
     changed height => { Editor.workspace-resized(root.width, root.height); }
 
     property <length> gap: 6px;
-    property <length> rail-w: 72px;
-    property <length> right-w: Math.max(320px, Math.min(430px, root.width * 0.27));
+    property <length> rail-w: 76px;
+    property <length> right-w: Math.max(330px, Math.min(440px, root.width * 0.28));
     property <length> top-h: Math.max(260px, root.height * 0.58);
 
-    /// What the right column shows when nothing selected wants it: 0 the
-    /// hub, 1 the library.
-    property <int> column: 0;
-    /// The library page the column opens on, and a nudge to turn to it.
+    /// What the right column shows when no selected clip wants it:
+    /// 0 the hub, 1 the library, 2 the keyframe graph, 3 the assistant.
+    in-out property <int> column: 0;
+    /// The library page the column opens on (101: Captions), and a nudge.
     property <int> library-tab: 0;
     property <int> library-token: 0;
     /// A selected clip shows its settings in the column until its head's
-    /// back arrow is pressed; selecting again brings them back.
+    /// back arrow is pressed, or another view is asked for; selecting again
+    /// brings them back.
     property <bool> inspector-dismissed;
     property <int> selection: Editor.selected-count;
     changed selection => { root.inspector-dismissed = false; }
@@ -374,6 +389,38 @@ export component FpsWorkspace inherits Rectangle {
         root.inspector-dismissed = true;
     }
 
+    /// Any view asked for anywhere - the menu bar's View list, a pane's
+    /// switcher, a keyframe's diamond - lands in the right column (the
+    /// monitor and the timeline are always up).
+    function show(kind: PaneKind) {
+        if (kind == PaneKind.media) {
+            root.open-library(0);
+        } else if (kind == PaneKind.keyframes) {
+            root.column = 2;
+            root.inspector-dismissed = true;
+        } else if (kind == PaneKind.inspector) {
+            root.inspector-dismissed = false;
+            if (Editor.selected-count == 0) {
+                root.column = 0;
+            }
+        }
+    }
+    property <int> show-token: Editor.fps-show-token;
+    changed show-token => { root.show(Editor.fps-show-kind); }
+    /// Generate captions, from wherever it was asked: the library opens
+    /// on its Captions page.
+    property <int> captions-token: Editor.captions-jump-token;
+    changed captions-token => { root.open-library(101); }
+
+    function captions() {
+        root.open-library(101);
+        Editor.captions();
+    }
+    function assistant() {
+        root.column = 3;
+        root.inspector-dismissed = true;
+    }
+
     // ── the rail ──
     Rectangle {
         x: 0;
@@ -382,15 +429,16 @@ export component FpsWorkspace inherits Rectangle {
         height: root.height;
 
         VerticalLayout {
-            padding-top: 10px;
-            padding-bottom: 10px;
-            spacing: 6px;
+            padding-top: 8px;
+            padding-bottom: 70px;
+            spacing: 2px;
             alignment: start;
 
             HorizontalLayout {
                 alignment: center;
                 RailButton {
                     glyph: Glyph.undo;
+                    caption: I18n.t("fps.rail.undo");
                     label: I18n.t1("tray.undo", Editor.keys-undo);
                     enabled: Editor.can-undo;
                     clicked => { Editor.undo(); }
@@ -400,15 +448,27 @@ export component FpsWorkspace inherits Rectangle {
                 alignment: center;
                 RailButton {
                     glyph: Glyph.redo;
+                    caption: I18n.t("fps.rail.redo");
                     label: I18n.t1("tray.redo", Editor.keys-redo);
                     enabled: Editor.can-redo;
                     clicked => { Editor.redo(); }
+                }
+            }
+            Rectangle {
+                height: 9px;
+                Rectangle {
+                    x: 18px;
+                    y: 4px;
+                    width: parent.width - 36px;
+                    height: 1px;
+                    background: Theme.line;
                 }
             }
             HorizontalLayout {
                 alignment: center;
                 RailButton {
                     glyph: Glyph.keyframe;
+                    caption: I18n.t("fps.rail.keyframe");
                     label: I18n.t("fps.keyframe");
                     enabled: Keyframes.available;
                     active: FpsKeys.here;
@@ -420,6 +480,7 @@ export component FpsWorkspace inherits Rectangle {
                 alignment: center;
                 RailButton {
                     glyph: Glyph.split;
+                    caption: I18n.t("fps.rail.split");
                     label: I18n.t1("tray.splitAtPlayhead", Editor.keys-split);
                     clicked => { Editor.split(); }
                 }
@@ -428,15 +489,47 @@ export component FpsWorkspace inherits Rectangle {
                 alignment: center;
                 RailButton {
                     glyph: Glyph.trash;
+                    caption: I18n.t("fps.deleteClip");
                     label: I18n.t("fps.deleteClip");
                     enabled: Editor.selected-count > 0;
                     clicked => { Editor.delete-selected(); }
+                }
+            }
+            Rectangle {
+                height: 9px;
+                Rectangle {
+                    x: 18px;
+                    y: 4px;
+                    width: parent.width - 36px;
+                    height: 1px;
+                    background: Theme.line;
+                }
+            }
+            HorizontalLayout {
+                alignment: center;
+                RailButton {
+                    glyph: Glyph.text-mark;
+                    caption: I18n.t("fps.rail.captions");
+                    label: I18n.t("fps.rail.captionsLong");
+                    active: root.column == 1 && root.library-tab == 101 && !root.show-inspector;
+                    clicked => { root.captions(); }
+                }
+            }
+            HorizontalLayout {
+                alignment: center;
+                RailButton {
+                    glyph: Glyph.sparkle;
+                    caption: I18n.t("fps.rail.assistant");
+                    label: I18n.t("fps.rail.assistantLong");
+                    active: root.column == 3 && !root.show-inspector;
+                    clicked => { root.assistant(); }
                 }
             }
             HorizontalLayout {
                 alignment: center;
                 RailButton {
                     glyph: Glyph.fit;
+                    caption: I18n.t("fps.rail.fit");
                     label: I18n.t("fps.zoomFit");
                     clicked => { Editor.zoom-to-fit(root.width - root.rail-w); }
                 }
@@ -446,8 +539,9 @@ export component FpsWorkspace inherits Rectangle {
         // settings at the foot of the rail
         RailButton {
             x: (parent.width - self.width) / 2;
-            y: parent.height - self.height - 12px;
+            y: parent.height - self.height - 10px;
             glyph: Glyph.settings;
+            caption: I18n.t("fps.rail.settings");
             label: I18n.t("fps.settings");
             clicked => { root.open-settings(); }
         }
@@ -455,6 +549,7 @@ export component FpsWorkspace inherits Rectangle {
 
     // ── the monitor ──
     Seat {
+        fixed: true;
         x: root.rail-w;
         y: root.gap;
         width: root.width - root.rail-w - root.right-w - 2 * root.gap;
@@ -463,6 +558,7 @@ export component FpsWorkspace inherits Rectangle {
         index: 0;
         border-radius: 14px;
         clip: true;
+        picked(kind) => { root.show(kind); }
     }
 
     // ── the right column ──
@@ -482,6 +578,7 @@ export component FpsWorkspace inherits Rectangle {
                 width: parent.width;
                 height: parent.height - 58px - 70px;
                 open-library(tab) => { root.open-library(tab); }
+                captions => { root.captions(); }
             }
             RoundButton {
                 x: parent.width - self.width - 4px;
@@ -501,13 +598,13 @@ export component FpsWorkspace inherits Rectangle {
             RoundButton {
                 x: 4px;
                 y: parent.height - self.height - 4px;
-                glyph: Glyph.folder;
-                label: I18n.t("fps.hubMedia");
-                clicked => { root.open-library(0); }
+                glyph: Glyph.sparkle;
+                label: I18n.t("fps.rail.assistantLong");
+                clicked => { root.assistant(); }
             }
         }
 
-        if !root.show-inspector && root.column == 1: Rectangle {
+        if !root.show-inspector && root.column != 0: Rectangle {
             width: parent.width;
             height: parent.height;
             border-radius: 14px;
@@ -517,10 +614,13 @@ export component FpsWorkspace inherits Rectangle {
             ColumnHead {
                 y: 0;
                 width: parent.width;
-                title: I18n.t("fps.library");
+                title: root.column == 1 ? I18n.t("fps.library")
+                    : root.column == 2 ? I18n.t("fps.keyframesTitle")
+                    : I18n.t("fps.rail.assistantLong");
                 back => { root.column = 0; }
             }
-            Seat {
+            if root.column == 1: Seat {
+                fixed: true;
                 y: 52px;
                 width: parent.width;
                 height: parent.height - 52px;
@@ -528,6 +628,23 @@ export component FpsWorkspace inherits Rectangle {
                 index: 2;
                 library-tab: root.library-tab;
                 library-token: root.library-token;
+                picked(kind) => { root.show(kind); }
+                removed => { root.column = 0; }
+            }
+            if root.column == 2: Seat {
+                fixed: true;
+                y: 52px;
+                width: parent.width;
+                height: parent.height - 52px;
+                kind: PaneKind.keyframes;
+                index: 4;
+                picked(kind) => { root.show(kind); }
+                removed => { root.column = 0; }
+            }
+            if root.column == 3: AssistantPane {
+                y: 52px;
+                width: parent.width;
+                height: parent.height - 52px;
             }
         }
 
@@ -547,17 +664,21 @@ export component FpsWorkspace inherits Rectangle {
                 delete => { Editor.delete-selected(); }
             }
             Seat {
+                fixed: true;
                 y: 52px;
                 width: parent.width;
                 height: parent.height - 52px;
                 kind: PaneKind.inspector;
                 index: 3;
+                picked(kind) => { root.show(kind); }
+                removed => { root.inspector-dismissed = true; }
             }
         }
     }
 
     // ── the timeline ──
     Seat {
+        fixed: true;
         x: root.rail-w;
         y: root.top-h;
         width: root.width - root.rail-w - root.gap;
@@ -566,5 +687,6 @@ export component FpsWorkspace inherits Rectangle {
         index: 1;
         border-radius: 14px;
         clip: true;
+        picked(kind) => { root.show(kind); }
     }
 }

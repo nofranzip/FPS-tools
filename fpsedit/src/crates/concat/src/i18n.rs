@@ -50,6 +50,8 @@ pub struct Language {
 
 /// The code the interface starts in, and the language of the keys.
 pub const ENGLISH: &str = "en";
+/// FPSedit speaks Spanish until another language is chosen in Settings.
+pub const DEFAULT_LOCALE: &str = "es";
 
 /// The locales the app ships, as `(code, file)`. `en.json` is the
 /// inventory - every key, with its English - which is what a translator

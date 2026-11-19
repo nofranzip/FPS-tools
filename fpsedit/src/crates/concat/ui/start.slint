@@ -1610,6 +1610,27 @@ component NewsCard inherits Pressable {
 // row, the projects, and - once the column is wide enough to spare it - a
 // learn-and-community panel beside the projects rather than under them,
 // so it is in view without a scroll and the projects keep the width.
+// FPSedit's mark and name, at the head of the launch screen.
+component Brand inherits HorizontalLayout {
+    in property <length> mark: 56px;
+    spacing: 14px;
+    alignment: start;
+    Image {
+        source: @image-url("assets/fpsedit-logo.png");
+        width: root.mark;
+        height: root.mark;
+        image-rendering: smooth;
+    }
+    Text {
+        text: "FPSedit";
+        vertical-alignment: center;
+        color: Theme.fg;
+        font-size: root.mark * 0.62;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+    }
+}
+
 component WideHome inherits Rectangle {
     in property <[RecentProjectData]> recents;
     in property <int> recents-total;
@@ -1667,6 +1688,9 @@ component WideHome inherits Rectangle {
                 width: root.main-w;
                 height: self.preferred-height;
                 alignment: start;
+
+                Brand { mark: 60px; }
+                Rectangle { height: 22px; }
 
                 // ── the greeting ─────────────────────────────────────
                 // Its own width, not the column's, so the gradient runs
@@ -1920,6 +1944,9 @@ component NarrowHome inherits Rectangle {
             padding-top: 24px;
             padding-bottom: 28px;
             alignment: start;
+
+            Brand { mark: 44px; }
+            Rectangle { height: 16px; }
 
             HorizontalLayout {
                 spacing: 8px;

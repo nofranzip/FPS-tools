@@ -1755,7 +1755,7 @@ export component MediaPane inherits Rectangle {
     property <bool> showing-captions: root.tab == 1 && root.text-category == 2;
     changed showing-captions => { root.captions-shown(self.showing-captions); }
     init => {
-        root.tab = root.open-tab;
+        root.turn-to(root.open-tab);
         if (root.showing-captions) { root.captions-shown(true); }
     }
     callback captions-shown(shown: bool);
@@ -1855,7 +1855,17 @@ export component MediaPane inherits Rectangle {
     /// each time the token moves.
     in property <int> open-tab;
     in property <int> open-tab-token;
-    changed open-tab-token => { root.tab = root.open-tab; }
+    changed open-tab-token => { root.turn-to(root.open-tab); }
+    /// FPSedit: 101 is Text & Captions > Captions; any other number a page.
+    function turn-to(page: int) {
+        if (page == 101) {
+            root.tab = 1;
+            root.captions-open = true;
+            root.text-category = 2;
+        } else {
+            root.tab = page;
+        }
+    }
     /// The Audio page is up, or not: a drop of sound files on the window
     /// goes into the library while it is.
     changed tab => { Sounds.shown(root.tab == 8); }

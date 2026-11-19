@@ -34,7 +34,7 @@ use crate::dirs::AppDirs;
 use crate::models;
 
 /// The repository the releases are read from.
-pub const REPO: &str = "nofranzip/fpsedit";
+pub const REPO: &str = "nofranzip/FPS-tools";
 
 /// The first release with a Version page: the earliest one a person can
 /// come back from, so the earliest one offered.
@@ -42,7 +42,7 @@ pub const FIRST_SWITCHABLE: Version = Version::new(0, 2, 5);
 
 /// GitHub's list of the repository's releases, newest first. A hundred
 /// covers years of releases at this pace.
-const RELEASES_URL: &str = "https://api.github.com/repos/nofranzip/fpsedit/releases?per_page=100";
+const RELEASES_URL: &str = "https://api.github.com/repos/nofranzip/FPS-tools/releases?per_page=100";
 
 /// What a download that was stopped says.
 pub const CANCELLED: &str = "the download was cancelled";
@@ -73,6 +73,9 @@ impl Version {
     /// release a person is offered.
     pub fn parse(text: &str) -> Option<Version> {
         let text = text.trim();
+        // FPS tools keeps more than one program: FPSedit's tags are
+        // `fpsedit-v1.2.3`; the others' are not this program's releases.
+        let text = text.strip_prefix("fpsedit-").unwrap_or(text);
         let text = text.strip_prefix('v').unwrap_or(text);
         let mut parts = text.split('.');
         let major = parts.next()?.parse().ok()?;

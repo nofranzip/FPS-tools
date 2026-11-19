@@ -1137,6 +1137,9 @@ pub struct Studio {
     /// Bumped to turn the library to Text & Captions > Captions; see
     /// `Editor.captions-jump-token`.
     pub captions_jump: i32,
+    /// FPSedit: the view last asked for, and a nudge; see
+    /// `Editor.fps-show-token`.
+    pub fps_show: (crate::ui::PaneKind, i32),
     /// A look being shown before it is laid down: the filter's id. It is
     /// drawn into the frames the monitor asks for as a layer over the whole
     /// picture, and nowhere else - the timeline does not have it until the
@@ -3064,7 +3067,7 @@ impl Studio {
         }
         // The words first, so everything published from here on is in
         // the remembered language.
-        i18n::select(prefs.locale.as_deref().unwrap_or(i18n::ENGLISH), &host.dirs);
+        i18n::select(prefs.locale.as_deref().unwrap_or(i18n::DEFAULT_LOCALE), &host.dirs);
         let languages = i18n::languages(&host.dirs);
         let recents = projects::recents(&host.dirs.config);
         let text_presets = presets::all(&host.dirs);
@@ -3128,6 +3131,7 @@ impl Studio {
             inspector_jump: (0, "", ""),
             media_jump: 0,
             captions_jump: 0,
+            fps_show: (crate::ui::PaneKind::Media, 0),
             audition: None,
             revision: 0,
             flat: None,

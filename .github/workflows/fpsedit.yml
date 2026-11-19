@@ -1130,4 +1130,17 @@ jobs:
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "FPSedit ${VERSION}" \
               --notes "Instalador de FPSedit para Windows (64 bits). Descarga el archivo terminado en -setup.exe y ábrelo."
           fi
-          gh release upload "$tag" stage/*-setup.exe --repo "$GITHUB_REPOSITORY" --clobber
+          setup=$(ls stage/*-setup.exe | head -1); name=$(basename "$setup")
+          # The manifest the app's update check reads: where this release's
+          # setup is, how big, and its digest.
+          python3 - "$setup" "$name" "$tag" "$GITHUB_REPOSITORY" <<'PY'
+          import hashlib, json, os, sys
+          path, name, tag, repo = sys.argv[1:]
+          data = open(path, "rb").read()
+          entry = {"file": name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                   "url": f"https://github.com/{repo}/releases/download/{tag}/{name}"}
+          json.dump({"version": tag.removeprefix("fpsedit-v"),
+                     "binaries": {"windows": {"x86_64": {"setup": entry}}}},
+                    open("stage/manifest.json", "w"), indent=2)
+          PY
+          gh release upload "$tag" "$setup" stage/manifest.json --repo "$GITHUB_REPOSITORY" --clobber

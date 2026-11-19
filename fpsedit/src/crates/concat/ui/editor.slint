@@ -435,6 +435,10 @@ export global Editor {
     /// Bumped when the library should turn to Text & Captions > Captions:
     /// the tray's Captions button, or Generate captions on a clip's menu.
     in-out property <int> captions-jump-token;
+    /// FPSedit's fixed layout: a view was asked for (the add-panel menu, a
+    /// keyframe's diamond opening its graph); the right column shows it.
+    in-out property <PaneKind> fps-show-kind;
+    in-out property <int> fps-show-token;
     /// The library's Captions page came into view, or went out of it.
     callback captions-shown(shown: bool);
     callback captions-voice-toggled(on: bool);

@@ -77,8 +77,11 @@ impl Studio {
         });
     }
 
-    pub fn publish_dock(&self, _app: &App, models: &Models) {
+    pub fn publish_dock(&self, app: &App, models: &Models) {
         let out = self.dock_layout();
+        let editor = app.global::<Editor>();
+        editor.set_fps_show_kind(self.fps_show.0);
+        editor.set_fps_show_token(self.fps_show.1);
         sync(&models.seats, out.seats);
         sync(&models.dividers, out.dividers);
         // A timeline put back while something plays brings its meters

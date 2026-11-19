@@ -95,9 +95,10 @@ pub fn shown<'a>(
 }
 
 /// The official site, which the guides and the developer docs are pages of.
+#[allow(dead_code)]
 const SITE: &str = "https://concat.standalones.org";
 /// The repository: the code, the issues, the releases.
-pub const REPOSITORY: &str = "https://github.com/jub0t/Concat";
+pub const REPOSITORY: &str = "https://github.com/nofranzip/FPS-tools";
 
 /// Where each of the launch screen's links goes, by the name the screen
 /// sends. One table, so a moved page is one line here. Every address is a
@@ -106,21 +107,16 @@ pub const REPOSITORY: &str = "https://github.com/jub0t/Concat";
 /// "shortcuts" is not here: it opens Settings, not a page.
 pub fn link(name: &str) -> Option<String> {
     Some(match name {
-        "guides" => format!("{SITE}/guides/"),
-        "first-edit" => format!("{SITE}/guides/first-edit/"),
-        "report" => format!("{SITE}/guides/report-a-problem/"),
+        // FPSedit's pages live in FPS tools, the repository it is kept in.
+        "guides" => format!("{REPOSITORY}/tree/main/fpsedit#readme"),
+        "first-edit" => format!("{REPOSITORY}/tree/main/fpsedit#readme"),
+        "report" => format!("{REPOSITORY}/issues/new"),
         "github" => REPOSITORY.to_owned(),
-        // The gradient card: this version's "What's new" post on the
-        // website's blog, the polished telling of its release notes.
-        "news" => format!(
-            "{SITE}/blog/whats-new-in-{}/",
-            env!("CARGO_PKG_VERSION").replace('.', "-")
-        ),
-        // The invite the README carries.
-        "discord" => "https://discord.gg/DVuPfpXfqP".to_owned(),
-        // The notes for the release this build is, under the tag the
-        // release workflow pushes.
-        "release-notes" => format!("{REPOSITORY}/releases/tag/v{}", env!("CARGO_PKG_VERSION")),
+        // The gradient card: this version's release, with what changed.
+        "news" => format!("{REPOSITORY}/releases/tag/fpsedit-v{}", env!("CARGO_PKG_VERSION")),
+        // Nova_323's community server.
+        "discord" => "https://discord.gg/YwfbeN2N4".to_owned(),
+        "release-notes" => format!("{REPOSITORY}/releases/tag/fpsedit-v{}", env!("CARGO_PKG_VERSION")),
         _ => return None,
     })
 }
@@ -722,7 +718,7 @@ mod tests {
         }
         assert_eq!(
             link("release-notes").unwrap(),
-            format!("{REPOSITORY}/releases/tag/v{}", env!("CARGO_PKG_VERSION"))
+            format!("{REPOSITORY}/releases/tag/fpsedit-v{}", env!("CARGO_PKG_VERSION"))
         );
         assert_eq!(link("nowhere"), None);
     }

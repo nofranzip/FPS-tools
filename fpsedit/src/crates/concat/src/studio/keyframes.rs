@@ -1974,6 +1974,8 @@ impl Studio {
         editor.set_media_filter(self.media.filter);
         editor.set_media_jump_token(self.media_jump);
         editor.set_captions_jump_token(self.captions_jump);
+        editor.set_fps_show_kind(self.fps_show.0);
+        editor.set_fps_show_token(self.fps_show.1);
         editor.set_importing(false);
 
         let (width, height) = self.output_size();

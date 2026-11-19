@@ -146,6 +146,32 @@ impl std::fmt::Display for Failure {
     }
 }
 
+/// FPSedit's assistant: a JSON POST, through the proxy when one is set,
+/// answered with the body as text. A refusal by status comes back with the
+/// server's own words, which say what was wrong (a bad key, a model name).
+pub fn post_json(
+    url: &str,
+    read: Duration,
+    headers: &[(&str, &str)],
+    body: &serde_json::Value,
+) -> Result<String, String> {
+    let route = crate::route::for_url(url);
+    let mut request = agent(route.as_ref(), Duration::from_secs(15), read, Trust::System)
+        .post(url)
+        .set("content-type", "application/json");
+    for (name, value) in headers {
+        request = request.set(name, value);
+    }
+    match request.send_string(&body.to_string()) {
+        Ok(response) => response.into_string().map_err(|error| error.to_string()),
+        Err(ureq::Error::Status(code, response)) => {
+            let text = response.into_string().unwrap_or_default();
+            Err(format!("HTTP {code}: {}", text.chars().take(600).collect::<String>()))
+        }
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 /// A GET of `url`, made ready by `prepare` (headers, a range), and sent:
 /// through the proxy the environment or the system names for it, and
 /// directly when the proxy cannot carry it - a setting left behind by a

@@ -120,6 +120,13 @@ pub struct Preferences {
     pub tts_voice: Option<i32>,
     /// The interface's locale code ("de", "pt-BR", ...); absent is English.
     pub locale: Option<String>,
+    /// FPSedit's assistant: which AI (`concat_host::assistant::PROVIDERS`
+    /// id), its key, a model typed in place of the default, and for a
+    /// service on this machine, where it listens.
+    pub assistant_provider: Option<String>,
+    pub assistant_key: Option<String>,
+    pub assistant_model: Option<String>,
+    pub assistant_base: Option<String>,
     /// Package ids starred in the effect libraries, in no order. One list
     /// across all three shelves: a star is a fact about a package, and which
     /// library it happens to be filed in is not part of it.

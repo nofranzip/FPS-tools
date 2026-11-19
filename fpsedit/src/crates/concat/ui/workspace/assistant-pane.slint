@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Nova_323 (FPSedit)
+
+// FPSedit's help assistant: a chat with the AI the person picks, about how
+// to do things in FPSedit. Rust (assistant.rs in the app) asks the service
+// off the window's thread and puts the answer in `turns`.
+
+import { Theme } from "../theme/theme.slint";
+import { I18n } from "../i18n.slint";
+import { Glyph, Icon } from "../icons.slint";
+import { Select } from "../primitives/select.slint";
+import { Field, Button } from "../primitives/modal.slint";
+
+export struct ChatTurnData {
+    from-person: bool,
+    text: string,
+}
+
+export global FpsAssistant {
+    in-out property <[ChatTurnData]> turns;
+    in-out property <[string]> providers;
+    in-out property <int> provider;
+    in-out property <string> key;
+    in-out property <string> model;
+    in-out property <string> base;
+    in-out property <string> model-hint;
+    in-out property <string> base-hint;
+    in-out property <bool> needs-key: true;
+    in-out property <string> key-page;
+    in-out property <bool> busy;
+    in-out property <string> error;
+    /// The settings strip is open: on first use, and when its gear is pressed.
+    in-out property <bool> setting-up: true;
+    callback send(text: string);
+    callback provider-changed(index: int);
+    callback key-edited(text: string);
+    callback model-edited(text: string);
+    callback base-edited(text: string);
+    callback cleared();
+}
+
+component Bubble inherits Rectangle {
+    in property <ChatTurnData> turn;
+    property <length> pad: 12px;
+    property <length> bw: Math.min(root.width * 0.86, measure.preferred-width + 2 * self.pad);
+    height: body.preferred-height + 2 * self.pad;
+    measure := Text {
+        visible: false;
+        text: root.turn.text;
+        font-size: Theme.fs + 1px;
+    }
+    Rectangle {
+        x: root.turn.from-person ? root.width - root.bw : 0;
+        y: 0;
+        width: root.bw;
+        height: root.height;
+        border-radius: 14px;
+        background: root.turn.from-person ? Theme.accent : Theme.raised;
+    }
+    body := Text {
+        x: (root.turn.from-person ? root.width - root.bw : 0) + root.pad;
+        y: root.pad;
+        width: root.bw - 2 * root.pad;
+        text: root.turn.text;
+        wrap: word-wrap;
+        color: root.turn.from-person ? Theme.on-accent : Theme.fg;
+        font-size: Theme.fs + 1px;
+    }
+}
+
+export component AssistantPane inherits Rectangle {
+    background: transparent;
+    property <string> draft;
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+
+        // ── which AI ──
+        if FpsAssistant.setting-up: Rectangle {
+            border-radius: 12px;
+            background: Theme.well;
+            height: setup.preferred-height;
+            setup := VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+                Text {
+                    text: I18n.t("fps.ai.pick");
+                    color: Theme.fg-muted;
+                    font-size: Theme.fs-sm;
+                }
+                Select {
+                    options: FpsAssistant.providers;
+                    current: FpsAssistant.provider;
+                    changed(index) => { FpsAssistant.provider-changed(index); }
+                }
+                if FpsAssistant.needs-key: Field {
+                    value: FpsAssistant.key;
+                    secret: true;
+                    placeholder: I18n.t("fps.ai.key");
+                    edited(text) => { FpsAssistant.key-edited(text); }
+                }
+                if FpsAssistant.needs-key: Text {
+                    text: I18n.t1("fps.ai.keyWhere", FpsAssistant.key-page);
+                    color: Theme.fg-dim;
+                    font-size: Theme.fs-sm;
+                    wrap: word-wrap;
+                }
+                Field {
+                    value: FpsAssistant.model;
+                    placeholder: I18n.t1("fps.ai.model", FpsAssistant.model-hint);
+                    edited(text) => { FpsAssistant.model-edited(text); }
+                }
+                if !FpsAssistant.needs-key: Field {
+                    value: FpsAssistant.base;
+                    placeholder: FpsAssistant.base-hint;
+                    technical: true;
+                    edited(text) => { FpsAssistant.base-edited(text); }
+                }
+                Button {
+                    label: I18n.t("fps.ai.ready");
+                    primary: true;
+                    clicked => { FpsAssistant.setting-up = false; }
+                }
+            }
+        }
+
+        // ── the conversation ──
+        chat := Flickable {
+            vertical-stretch: 1;
+            viewport-width: self.width;
+            viewport-height: list.preferred-height;
+            list := VerticalLayout {
+                width: chat.width;
+                spacing: 8px;
+                alignment: start;
+                if FpsAssistant.turns.length == 0: Text {
+                    text: I18n.t("fps.ai.hello");
+                    color: Theme.fg-muted;
+                    wrap: word-wrap;
+                    font-size: Theme.fs + 1px;
+                }
+                for turn in FpsAssistant.turns: Bubble {
+                    turn: turn;
+                }
+                if FpsAssistant.busy: Text {
+                    text: I18n.t("fps.ai.thinking");
+                    color: Theme.fg-dim;
+                    font-italic: true;
+                }
+                if FpsAssistant.error != "": Text {
+                    text: FpsAssistant.error;
+                    color: Theme.danger;
+                    wrap: word-wrap;
+                }
+            }
+            changed viewport-height => {
+                self.viewport-y = Math.min(0px, self.height - self.viewport-height);
+            }
+        }
+
+        // ── asking ──
+        HorizontalLayout {
+            spacing: 6px;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+                background: gear.has-hover ? Theme.field-hover : Theme.field;
+                accessible-role: button;
+                accessible-label: I18n.t("fps.ai.settings");
+                Icon {
+                    x: 7px;
+                    y: 7px;
+                    glyph: Glyph.settings;
+                    size: 20px;
+                    tint: Theme.fg;
+                }
+                gear := TouchArea {
+                    clicked => { FpsAssistant.setting-up = !FpsAssistant.setting-up; }
+                }
+            }
+            Field {
+                horizontal-stretch: 1;
+                value: root.draft;
+                placeholder: I18n.t("fps.ai.ask");
+                edited(text) => { root.draft = text; }
+            }
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+                background: send.has-hover ? Theme.accent-hover : Theme.accent;
+                opacity: FpsAssistant.busy || root.draft == "" ? 0.5 : 1;
+                accessible-role: button;
+                accessible-label: I18n.t("fps.ai.send");
+                Icon {
+                    x: 7px;
+                    y: 7px;
+                    glyph: Glyph.chevron-up;
+                    size: 20px;
+                    tint: Theme.on-accent;
+                }
+                send := TouchArea {
+                    enabled: !FpsAssistant.busy && root.draft != "";
+                    clicked => {
+                        FpsAssistant.send(root.draft);
+                        root.draft = "";
+                    }
+                }
+            }
+        }
+    }
+}

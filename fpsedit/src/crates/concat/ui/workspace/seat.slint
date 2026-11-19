@@ -29,6 +29,8 @@ export component Seat inherits Rectangle {
     /// Which box this is, 0..3. Travels in the drag payload so a drop can say
     /// where the panel came from.
     in property <int> index;
+    /// FPSedit's fixed layout: a pane cannot be closed, only swapped.
+    in property <bool> fixed;
     /// FPSedit's layout: the library page to open on, and a nudge to turn to it.
     in property <int> library-tab;
     in property <int> library-token;
@@ -93,7 +95,7 @@ export component Seat inherits Rectangle {
 
             pane-picked(kind) => { root.picked(kind); }
             pane-seat: root.index;
-            pane-removable: Editor.seats.length > 1;
+            pane-removable: !root.fixed && Editor.seats.length > 1;
             pane-removed => { root.removed(); }
 
             items: Editor.media;
@@ -182,7 +184,7 @@ export component Seat inherits Rectangle {
 
             pane-picked(kind) => { root.picked(kind); }
             pane-seat: root.index;
-            pane-removable: Editor.seats.length > 1;
+            pane-removable: !root.fixed && Editor.seats.length > 1;
             pane-removed => { root.removed(); }
 
             previewing: Editor.library-audition != "";
@@ -250,7 +252,7 @@ export component Seat inherits Rectangle {
 
             pane-picked(kind) => { root.picked(kind); }
             pane-seat: root.index;
-            pane-removable: Editor.seats.length > 1;
+            pane-removable: !root.fixed && Editor.seats.length > 1;
             pane-removed => { root.removed(); }
 
             video-effects: Editor.video-effects;
@@ -383,7 +385,7 @@ export component Seat inherits Rectangle {
 
             pane-picked(kind) => { root.picked(kind); }
             pane-seat: root.index;
-            pane-removable: Editor.seats.length > 1;
+            pane-removable: !root.fixed && Editor.seats.length > 1;
             pane-removed => { root.removed(); }
 
             selected: Editor.selected-clip;
@@ -400,7 +402,7 @@ export component Seat inherits Rectangle {
 
             pane-picked(kind) => { root.picked(kind); }
             pane-seat: root.index;
-            pane-removable: Editor.seats.length > 1;
+            pane-removable: !root.fixed && Editor.seats.length > 1;
             pane-removed => { root.removed(); }
 
             tabs: Editor.timeline-tabs;

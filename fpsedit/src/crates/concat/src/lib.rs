@@ -31,6 +31,7 @@ mod ui {
     slint::include_modules!();
 }
 
+mod assistant;
 mod batch_volume;
 mod chips;
 mod dock;
@@ -841,6 +842,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: Smoke) -> Result<(), slint:
 
     let editor = app.global::<Editor>();
 
+    // FPSedit's help assistant.
+    assistant::wire(&app);
+
     // ── the launch screen ──
     app.on_start_compose(on_window!(|state| {
         state.handle(Msg::Start(StartMsg::Compose));
@@ -969,6 +973,8 @@ fn start(project: Option<std::path::PathBuf>, smoke: Smoke) -> Result<(), slint:
     editor.on_key_mark_opened(on_dock!(|state| {
         if !state.compact && !state.meters.phone && !state.dock.contains(PaneKind::Keyframes) {
             add_pane(&mut state, PaneKind::Keyframes);
+        } else {
+            state.fps_show = (PaneKind::Keyframes, state.fps_show.1 + 1);
         }
     }));
     editor.on_dock_remove(on_dock!(|state, seat: i32| {
@@ -2998,6 +3004,8 @@ fn typing(app: &App) -> bool {
 /// Adds a pane of `kind` beside the largest seat: to its right when that
 /// seat is wide enough to halve across, else below it.
 pub(crate) fn add_pane(state: &mut Studio, kind: PaneKind) {
+    // FPSedit lays its views out itself: it is told which was asked for.
+    state.fps_show = (kind, state.fps_show.1 + 1);
     let seats = state.dock_layout().seats;
     let Some(biggest) = seats
         .iter()
