@@ -226,14 +226,17 @@ fn untitled() -> String {
 /// Whether `name` is one this sheet made up rather than one somebody
 /// typed: "Untitled project", or that with a number after it.
 fn is_untitled(name: &str) -> bool {
-    let untitled = untitled();
     let name = name.trim();
+    // The sheet's first name can be made before the interface's language
+    // is chosen (FPSedit starts in Spanish), so English's counts too.
     name.is_empty()
-        || name == untitled.as_str()
-        || name
-            .strip_prefix(untitled.as_str())
-            .and_then(|rest| rest.strip_prefix(' '))
-            .is_some_and(|number| number.parse::<u32>().is_ok_and(|n| n >= 2))
+        || [untitled(), "Untitled project".to_owned()].iter().any(|untitled| {
+            name == untitled.as_str()
+                || name
+                    .strip_prefix(untitled.as_str())
+                    .and_then(|rest| rest.strip_prefix(' '))
+                    .is_some_and(|number| number.parse::<u32>().is_ok_and(|n| n >= 2))
+        })
 }
 
 /// The first of "Untitled project", "Untitled project 2", ... whose folder
