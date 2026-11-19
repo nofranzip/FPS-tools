@@ -1001,6 +1001,8 @@ window.fpsBack = function () {
   if (UI.sel) { UI.toggleSelect(); return true; }
   return false;
 };
+window.fpsDirty = function () { return !!(doc && !$('#editor').classList.contains('hidden') && (S.dirty || S.textObj || S.imgObj || S.balloon)); };
+window.fpsSaveAll = async function () { try { if (S.textObj) TXT.commit(); if (S.imgObj) IMGF.commit(); if (S.balloon) BAL.commit(); if (S.fx) FX.apply(); if (S.bgx) BGX.done(); await saveDoc(true); } catch (e) { console.error(e); } return true; };
 window.fpsPause = function () { if (doc && S.dirty && !$('#editor').classList.contains('hidden')) saveDoc(true); };
 
 /* ---------- ventana de referencia ---------- */
