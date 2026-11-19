@@ -2,7 +2,7 @@ Unicode true
 SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 !define APP "FPSpaint"
-!define VER "1.1.6"
+!define VER "1.1.7"
 Name "${APP}"
 OutFile "dist\FPSpaint-Setup-${VER}.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP}"

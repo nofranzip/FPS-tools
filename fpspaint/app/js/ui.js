@@ -259,10 +259,11 @@ const UI = {
     this.bSize = SRow('Grosor', { min: .5, max: 1000, value: 10, ...SIZE_T, fmt: v => sizeFmt(v) + 'px', bump: (v, d) => v + d * (v < 10 ? .5 : v < 50 ? 1 : 5), onInput: v => { setToolSize(this.isPixelBrush() ? Math.round(v) : v); this.updDock(); this.drawBrushPreview(); } });
     this.bOp = SRow('Opacidad', { min: 0, max: 1, value: 1, step: .01, cls: 'chk', fmt: v => Math.round(v * 100) + '%', onInput: v => { const c = S.cfg[S.tool]; if (c) c.op = Math.max(.01, v); this.updSizeLbl(); this.vOp.set(v); } });
     this.bStab = SRow('Estabilizador', { min: 0, max: 10, value: S.stab, step: 1, fmt: v => v ? Math.round(v) + '' : 'No', onInput: v => { S.stab = v; store.set('stab2', v); } });
-    $('.bsl', s).append(this.bSize.el, this.bOp.el, this.bStab.el);
+    this.bSoft = SRow('Suavizado', { min: 0, max: 100, value: S.soften || 0, step: 1, bump: (v, d) => v + d * 5, fmt: v => v ? Math.round(v) + '%' : 'No', onInput: v => { S.soften = Math.round(v); store.set('soften', S.soften); this.drawBrushPreview(); } });
+    $('.bsl', s).append(this.bSize.el, this.bOp.el, this.bStab.el, this.bSoft.el);
     this.bcat = 'all';
   },
-  syncPanelSliders() { if (!this.bSize) return; this.bSize.set(toolSize()); this.bOp.set(toolOp()); this.bStab.set(S.stab); this.bOp.el.querySelector('.hd span').textContent = ['smudge', 'blur'].includes(S.tool) ? 'Fuerza' : 'Opacidad'; $('#pTitle') && this.panelTab === 'brush' && ($('#pTitle').textContent = this.brushTitle()); this.drawBrushPreview(); },
+  syncPanelSliders() { if (!this.bSize) return; this.bSize.set(toolSize()); this.bOp.set(toolOp()); this.bStab.set(S.stab); this.bSoft && this.bSoft.set(S.soften || 0); this.bOp.el.querySelector('.hd span').textContent = ['smudge', 'blur'].includes(S.tool) ? 'Fuerza' : 'Opacidad'; $('#pTitle') && this.panelTab === 'brush' && ($('#pTitle').textContent = this.brushTitle()); this.drawBrushPreview(); },
   refreshBrushList() {
     const s = $('.psec[data-s="brush"]'); if (!s || !doc) return; const hasList = S.tool === 'brush' || S.tool === 'eraser';
     $('.bwrap', s).style.display = hasList ? '' : 'none';
@@ -670,6 +671,7 @@ const UI = {
       const rr = SRow('Rotación', { min: -180, max: 180, value: Math.round(V.r * 180 / Math.PI), step: 1, unit: '°', onInput: v => rotateView(v * Math.PI / 180) }); b.appendChild(rr.el); this._rotRow = rr;
       const rb = el('<div class="row" style="gap:6px"></div>'); for (const [t, f] of [['−15°', () => V.r - Math.PI / 12], ['+15°', () => V.r + Math.PI / 12], ['90°', () => V.r + Math.PI / 2], ['Enderezar', () => 0]]) { const x = el(`<button class="btn" style="flex:1;height:36px;padding:0 6px">${t}</button>`); x.onclick = () => rotateView(Math.atan2(Math.sin(f()), Math.cos(f()))); rb.appendChild(x); } b.appendChild(rb);
       const rg = el('<div class="row"><span class="lbl">Rotar con dos dedos</span></div>'); rg.appendChild(Toggle(S.rotGesture !== false, v => { S.rotGesture = v; store.set('rotGesture', v); })); b.appendChild(rg);
+      const qr = el('<div class="row"><span class="lbl">Calidad del trazo</span></div>'), qs = el('<div class="seg"></div>'); ['Rendimiento', 'Equilibrada', 'Máxima'].forEach((n, i) => { const bt = el(`<button class="${S.quality === i ? 'on' : ''}">${n}</button>`); bt.onclick = () => { S.quality = i; store.set('quality', i); stampCache.clear(); qs.querySelectorAll('button').forEach((x, j) => x.classList.toggle('on', j === i)); resizeView(); render(); UI.toast(['Más fluido, trazo algo más simple', 'Equilibrio entre limpieza y fluidez', 'Trazo más limpio (usa más memoria)'][i]); }; qs.appendChild(bt); }); qr.appendChild(qs); b.appendChild(qr);
       const r3 = el('<div class="row"><span class="lbl">Voltear la vista (espejo)</span></div>'); r3.appendChild(Toggle(V.flip, v => { const c = toDoc(V.w / 2, V.h / 2); V.flip = v; const q = toScr(c.x, c.y); V.x += V.w / 2 - q.x; requestRender(); })); b.appendChild(r3);
       body.appendChild(b); body.appendChild(el('<div class="sec-t">Mostrar al hacer zoom</div>'));
       body.appendChild(Seg([['1', 'Suave'], ['0', 'Pixelado']], S.smoothZoom ? '1' : '0', v => { S.smoothZoom = v === '1'; requestRender(); }));

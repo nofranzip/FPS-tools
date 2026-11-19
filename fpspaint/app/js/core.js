@@ -106,7 +106,7 @@ const S = {
   tool: 'brush', prevTool: 'brush',
   cfg: { brush: { id: 'pluma', sizes: {}, op: 1 }, eraser: { id: 'rotulador', sizes: {}, op: 1 }, smudge: { size: 40, op: .6 }, blur: { size: 50, op: .6 }, shape: { size: 6, op: 1 }, select: { size: 1, op: 1 }, fill: { size: 1, op: 1 } },
   color: [24, 26, 32], hsv: [228, .25, .12], prevColor: [24, 26, 32], recent: store.get('recent', []),
-  stab: store.get('stab2', 1), rotGesture: store.get('rotGesture', true), taper: store.get('taper', { on: false, start: .4, end: .4 }),
+  stab: store.get('stab2', 1), rotGesture: store.get('rotGesture', true), quality: store.get('quality', 1), soften: store.get('soften', 0), taper: store.get('taper', { on: false, start: .4, end: .4 }),
   shape: 'line', shapeFill: false, fillTol: 32, fillAll: true, fillGrow: 1,
   sym: { mode: 'off', n: 6 }, ruler: { mode: 'off', a: null, b: null, c: null },
   grid: { on: false, size: 64 }, smoothZoom: true, selMode: 'rect',
@@ -176,7 +176,7 @@ function fitView() {
 }
 function zoomAt(f, cx, cy) { const p = toDoc(cx, cy); V.s = clamp(V.s * f, .05, 64); const q = toScr(p.x, p.y); V.x += cx - q.x; V.y += cy - q.y; requestRender(); UI.updZoom && UI.updZoom(); }
 function resizeView() {
-  _vr = null; const r = stageRect(); V.dpr = Math.min(window.devicePixelRatio || 1, window.FPSAndroid || matchMedia('(pointer:coarse)').matches ? 2 : 2.5); V.w = r.width; V.h = r.height;
+  _vr = null; const r = stageRect(); V.dpr = Math.min(window.devicePixelRatio || 1, window.FPSAndroid || matchMedia('(pointer:coarse)').matches ? [1.5, 2.5, 3][S.quality] : [2, 3, 4][S.quality]); V.w = r.width; V.h = r.height;
   view.width = Math.round(r.width * V.dpr); view.height = Math.round(r.height * V.dpr); requestRender();
 }
 let rafId = 0;
@@ -312,7 +312,7 @@ function render0() {
   const bg = S.bgx ? BGX_BG[S.bgx.bgi] : doc.bg;
   if (bg === 'transparent' || bg === 'checker') { c.save(); c.setTransform(d, 0, 0, d, 0, 0); c.beginPath(); for (const [qx, qy] of [[0, 0], [doc.w, 0], [doc.w, doc.h], [0, doc.h]]) { const q = toScr(qx, qy); c.lineTo(q.x, q.y); } c.closePath(); c.clip(); c.fillStyle = checker(c); c.fillRect(0, 0, view.width, view.height); c.restore(); }
   else { c.fillStyle = bg === 'white' ? '#fff' : bg === 'black' ? '#000' : bg; c.fillRect(0, 0, doc.w, doc.h); }
-  c.imageSmoothingEnabled = doc.pixel ? false : (S.smoothZoom || V.s < 1.5); c.imageSmoothingQuality = (op || gest) ? 'low' : 'high';
+  c.imageSmoothingEnabled = doc.pixel ? false : (S.smoothZoom || V.s < 1.5); c.imageSmoothingQuality = (op || gest) ? ['low', 'medium', 'high'][S.quality] : 'high';
   ensureTmp();
   if (S.playing) { drawLayers(c, doc.frames[S.playFrame].layers, {}); }
   else if (S.bgx) { const l = AL(); const src = liveSource(l, l, {}); c.drawImage(src, 0, 0); }
@@ -404,8 +404,8 @@ const ANTS = {
 const stampCache = new Map();
 function colStr() { return hex(...S.color); }
 function getStamp(col, b, v = 0) {
-  const key = b.id + '|' + col + '|' + v; let st = stampCache.get(key); if (st) return st;
-  const N = b.tip ? Math.max(96, b.tip.width, b.tip.height) : 128, c = mkCanvas(N, N), x = c.getContext('2d'); x.fillStyle = col;
+  const sf = b.pixel || (doc && doc.pixel) ? 0 : Math.round(S.soften || 0), key = b.id + '|' + col + '|' + v + '|' + S.quality + '|' + sf; let st = stampCache.get(key); if (st) return st;
+  const N = b.tip ? Math.max(96, b.tip.width, b.tip.height) : ((b.hard ?? 1) < .6 && !b.shape && !b.star ? [128, 256, 384][S.quality] : [96, 128, 192][S.quality]), c = mkCanvas(N, N), x = c.getContext('2d'); x.fillStyle = col;
   if (b.tip) { const t = b.tip, k = N / Math.max(t.width, t.height), w = t.width * k, h = t.height * k; x.drawImage(t, (N - w) / 2, (N - h) / 2, w, h); if (!b.keepColor || col === '#000') { x.globalCompositeOperation = 'source-in'; x.fillRect(0, 0, N, N); x.globalCompositeOperation = 'source-over'; } }
   else if (b.shape) { const h = N / 2; x.save(); x.translate(h, h); x.beginPath();
     switch (b.shape) {
@@ -426,7 +426,10 @@ function getStamp(col, b, v = 0) {
   else if ((b.hard ?? 1) >= .97) { x.beginPath(); x.arc(N / 2, N / 2, N / 2 - .5, 0, 7); x.fill(); }
   else { const [r, g, bb] = parseHex(col); const gr = x.createRadialGradient(N / 2, N / 2, 0, N / 2, N / 2, N / 2); gr.addColorStop(0, col); gr.addColorStop(Math.max(.01, b.hard || 0), col); gr.addColorStop(1, `rgba(${r},${g},${bb},0)`); x.fillStyle = gr; x.fillRect(0, 0, N, N); }
   if (b.grain) { const id = x.getImageData(0, 0, N, N), dd = id.data; for (let i = 3; i < dd.length; i += 4) if (Math.random() < b.grain * .6) dd[i] = dd[i] * Math.random() * .35; x.putImageData(id, 0, 0); }
-  if (stampCache.size > 300) stampCache.clear(); stampCache.set(key, st = c); return st;
+  else if (S.quality > 0 && (b.hard ?? 1) < .6 && !b.tip && !b.shape && !b.star) { const id = x.getImageData(0, 0, N, N), dd = id.data; for (let i = 3; i < dd.length; i += 4) { const a = dd[i]; if (a > 0 && a < 255) dd[i] = clamp(a + (Math.random() - .5) * 3, 0, 255); } x.putImageData(id, 0, 0); }
+  let out = c;
+  if (sf > 0) { const bl = N * sf / 100 * .09, ins = Math.min(N * .3, bl * 1.6), c2 = mkCanvas(N, N), x2 = c2.getContext('2d'); x2.filter = `blur(${bl.toFixed(2)}px)`; x2.drawImage(c, ins, ins, N - 2 * ins, N - 2 * ins); if (x2.filter !== 'none') out = c2; }
+  if (stampCache.size > 300) stampCache.clear(); stampCache.set(key, st = out); return st;
 }
 function symPoints(x, y) {
   const m = S.sym.mode; if (m === 'off' || S.bgx) return [[x, y, 0]];
@@ -485,18 +488,19 @@ function addStroke(p) {
 function walkLine(a, cur, quiet) {
   const dx = cur.x - a.x, dy = cur.y - a.y, d = Math.hypot(dx, dy); if (d < .001) return;
   const b = op.b; let rem = d, t = 0;
-  const spacing = () => Math.max(b.pixel ? .5 : .4, op.size * (b.spacing || .08) * (b.pixel ? 1 : Math.max(.25, radiusF(cur.pr))));
+  const sm2 = softMul(b), spacing = () => Math.max(b.pixel ? .5 : .4, op.size * (b.spacing || .08) * sm2 * (b.pixel ? 1 : Math.max(.25, radiusF(cur.pr))));
   let next = spacing() - op.since;
   while (next <= rem) { t += next; rem -= next; const f = t / d; const q = { x: a.x + dx * f, y: a.y + dy * f, pr: a.pr + (cur.pr - a.pr) * f }; op.dist += next; dabAt(q); op.since = 0; next = spacing(); }
   op.since += rem; op.dist += rem; op.last = cur; if (!quiet) requestRender();
 }
 function finishCurve() { if (op && op.pts && op.pts.length >= 2 && op.m && !op.b.pixel && S.ruler.mode === 'off') { const e = op.pts[op.pts.length - 1]; walkLine(op.m, e); } }
+function softMul(b) { return (b.flow ?? 1) < .2 && (b.hard ?? 1) < .5 && !b.particles && !b.tip ? Math.min([3, 2.2, 1.6][S.quality], [.18, .14, .1][S.quality] / Math.max(.02, b.flow)) : 1; }
 function radiusF(pr) { const b = op.b; return 1 - (b.psize || 0) + (b.psize || 0) * pr; }
 function taperStart(dist) { let f = 1; if (op.b.taper) f = Math.min(f, .15 + dist / (op.size * 3)); if (S.taper.on && !op.b.pixel && op.kind === 'stroke') f = Math.min(f, .08 + dist / Math.max(1, S.taper.start * op.size * 12)); return Math.min(1, f); }
 function dabAt(q) {
   const b = op.b; let r = op.size / 2 * radiusF(q.pr); const base = r; r *= taperStart(op.dist);
   if (b.jitterSize) r *= 1 - Math.random() * b.jitterSize;
-  let a = (b.flow ?? 1) * (1 - (b.popac || 0) + (b.popac || 0) * q.pr);
+  let a = Math.min(1, (b.flow ?? 1) * softMul(b)) * (1 - (b.popac || 0) + (b.popac || 0) * q.pr);
   let x = q.x, y = q.y; if (b.scatter) { const t = Math.random() * 6.28, s = Math.random() * b.scatter * op.size * 2; x += Math.cos(t) * s; y += Math.sin(t) * s; }
   let ang = op.ang || 0; if (op.pq) { const dx = q.x - op.pq.x, dy = q.y - op.pq.y; if (dx * dx + dy * dy > .01) ang = op.ang = Math.atan2(dy, dx); } op.pq = { x: q.x, y: q.y };
   if (b.rot === 'random' || b.rotRand || b.star || (b.shape && !b.rot)) ang = Math.random() * 6.283;
